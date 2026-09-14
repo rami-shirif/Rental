@@ -48,6 +48,40 @@ The rules allow only authenticated users to read/write the app data. The app sig
 
 The Firebase web `apiKey` is not a password/secret. However, your database rules are critical. Do **not** use public `".read": true` / `".write": true` rules in production.
 
+## Telegram reminders (background, works even with the app closed, 100% free — no card, no Blaze plan)
+
+A [Google Apps Script](https://script.google.com) (`apps-script/Code.gs`) checks every 5 minutes for rentals due back within 3 hours and messages you on Telegram. It runs entirely on Google's free Apps Script infrastructure — not Firebase Cloud Functions — so there's no billing plan to upgrade and no card to add. It also sends a one-time overdue alert.
+
+### One-time setup
+
+1. **Create a Telegram bot**:
+   - In Telegram, open a chat with `@BotFather`
+   - Send `/newbot` and follow the prompts (any name/username)
+   - BotFather replies with a **bot token** — save it
+
+2. **Get your chat ID**:
+   - Search for your new bot in Telegram and send it any message (e.g. "hi")
+   - In a browser, open: `https://api.telegram.org/bot<YOUR_TOKEN>/getUpdates`
+   - Find `"chat":{"id":123456789, ...}` in the JSON response — that number is your **chat ID**
+
+3. **Create the script**:
+   - Go to [script.google.com](https://script.google.com) → **New project**
+   - Delete the placeholder code, paste in the full contents of `apps-script/Code.gs`
+   - Rename the project (e.g. "Rental Reminders") if you like
+
+4. **Add your secrets** (Project Settings → gear icon on the left → Script Properties → Add script property):
+   - `TELEGRAM_BOT_TOKEN` → your bot token
+   - `TELEGRAM_CHAT_ID` → your chat id
+
+5. **Install the schedule**:
+   - In the toolbar function dropdown, select `installTrigger` → click **Run**
+   - The first run asks you to authorize the script (it needs permission to make web requests) — approve it
+   - This sets up a trigger that runs `checkRentals` every 5 minutes, forever, for free
+
+To test immediately without waiting: select `checkRentals` in the same dropdown → **Run**.
+
+To adjust the reminder window, edit `SOON_WINDOW_MS` near the top of `Code.gs` (and re-save — no redeploy step needed, Apps Script updates live).
+
 ## Run locally
 
 Install Node.js, then:
