@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   connectFirebase,
   readCollection,
@@ -9,6 +10,8 @@ import "./styles.css";
 
 const uid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 const DAY_MS = 86400000;
+const HOUR_MS = 3600000;
+const MIN_MS = 60000;
 const money = (n) => `${Number(n || 0).toLocaleString("en-US", { maximumFractionDigits: 2 })} MAD`;
 const dateText = (value) => new Date(value).toLocaleDateString("en-GB", {
   day: "2-digit", month: "short", year: "numeric"
@@ -16,12 +19,34 @@ const dateText = (value) => new Date(value).toLocaleDateString("en-GB", {
 const dateTimeText = (value) => new Date(value).toLocaleString("en-GB", {
   day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit"
 });
+const pad2 = (n) => String(Math.max(0, n)).padStart(2, "0");
 
 function endDate(rental) {
   return new Date(new Date(rental.startDate).getTime() + Number(rental.days) * DAY_MS);
 }
 function daysLeft(rental) {
   return Math.ceil((endDate(rental).getTime() - Date.now()) / DAY_MS);
+}
+
+// Breaks a millisecond duration into whole days / hours / minutes / seconds.
+function splitDuration(ms) {
+  const abs = Math.abs(ms);
+  return {
+    d: Math.floor(abs / DAY_MS),
+    h: Math.floor((abs % DAY_MS) / HOUR_MS),
+    m: Math.floor((abs % HOUR_MS) / MIN_MS),
+    s: Math.floor((abs % MIN_MS) / 1000),
+  };
+}
+
+// Ticks once a second so any component using it re-renders with a live clock.
+function useClock(intervalMs = 1000) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), intervalMs);
+    return () => clearInterval(id);
+  }, [intervalMs]);
+  return now;
 }
 
 export default function App() {
@@ -142,7 +167,7 @@ export default function App() {
     };
   }, [cars, rentals]);
 
-  if (loading) return <div className="loading">Connecting to Firebase…</div>;
+  if (loading) return <div className="loading">Hello 👋</div>;
 
   return (
     <div className="app-shell">
@@ -199,6 +224,45 @@ function Stat({ label, value, cls = "" }) {
   return <div className={`stat ${cls}`}><span>{label}</span><strong>{value}</strong></div>;
 }
 
+// Animated progress bar + live countdown timer for an active rental.
+function CountdownBar({ rental }) {
+  const now = useClock(1000);
+  const start = new Date(rental.startDate).getTime();
+  const end = endDate(rental).getTime();
+  const totalMs = Math.max(1, end - start);
+  const remainingMs = end - now;
+  const overdue = remainingMs < 0;
+  const urgent = !overdue && remainingMs < DAY_MS;
+  const elapsedPct = Math.max(0, Math.min(100, ((now - start) / totalMs) * 100));
+  const { d, h, m, s } = splitDuration(remainingMs);
+
+  const label = overdue
+    ? `${d > 0 ? `${d}d ` : ""}${pad2(h)}:${pad2(m)}:${pad2(s)} overdue`
+    : `${d > 0 ? `${d}d ` : ""}${pad2(h)}:${pad2(m)}:${pad2(s)} left`;
+  const notified = overdue ? rental.notifiedOverdue : rental.notifiedSoon;
+
+  return (
+    <div className={`countdown ${overdue ? "danger" : urgent ? "urgent" : ""}`}>
+      <div className="countdown-bar">
+        <motion.i
+          initial={false}
+          animate={{ width: `${elapsedPct}%` }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+        />
+      </div>
+      <motion.span
+        className="countdown-timer"
+        key={overdue ? "over" : "left"}
+        initial={{ opacity: 0, y: -4 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25 }}
+      >
+        {notified ? "🔔 " : ""}{label}
+      </motion.span>
+    </div>
+  );
+}
+
 function Dashboard({ stats, cars, onReturn, onContract }) {
   const upcoming = [...stats.active].sort((a, b) => daysLeft(a) - daysLeft(b)).slice(0, 6);
   return (
@@ -212,9 +276,11 @@ function Dashboard({ stats, cars, onReturn, onContract }) {
               const left = daysLeft(r);
               return <div className="list-row" key={r.id}>
                 <div><b>{car ? `${car.name} · ${car.model}` : "Unknown car"}</b><small>{r.customerName} · CIN {r.cin}</small></div>
-                <span className={`pill ${left < 0 ? "danger" : ""}`}>{left < 0 ? `${Math.abs(left)}d overdue` : `${left}d left`}</span>
+                <CountdownBar rental={r} />
+                <div className="list-btn">
                 <button className="ghost" onClick={() => onContract(r)}>Contract</button>
                 <button className="ghost" onClick={() => onReturn(r.id)}>Return</button>
+                </div>
               </div>;
             })}
           </div>
@@ -308,7 +374,20 @@ function Rentals({ cars, rentals, onAdd, onReturn, onContract }) {
         <Field label="CIN / ID" value={form.cin} onChange={(v) => setForm({ ...form, cin: v })} placeholder="ID number" />
         <Field label="Phone" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} placeholder="+212 ..." />
         <Field label="Rental days" type="number" value={form.days} onChange={(v) => setForm({ ...form, days: v })} />
-        <div className="total"><span>Total price</span><strong>{money(total)}</strong></div>
+        <motion.div className="total" layout transition={{ duration: 0.3, ease: "easeOut" }}>
+          <span>Total price</span>
+          <AnimatePresence mode="popLayout" initial={false}>
+            <motion.strong
+              key={total}
+              initial={{ y: -14, opacity: 0, scale: 0.92 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 14, opacity: 0, scale: 0.92 }}
+              transition={{ duration: 0.28, ease: "easeOut" }}
+            >
+              {money(total)}
+            </motion.strong>
+          </AnimatePresence>
+        </motion.div>
         <button className="primary" disabled={!available.length}>{available.length ? "Start rental" : "No cars available"}</button>
       </form>
     </section>
@@ -318,14 +397,13 @@ function Rentals({ cars, rentals, onAdd, onReturn, onContract }) {
       {active.length === 0 ? <Empty text="No active rentals." /> : <div className="list">
         {active.map((r) => {
           const c = cars.find((x) => x.id === r.carId);
-          const left = daysLeft(r);
           return <div className="rental-row" key={r.id}>
             <div className="rental-main">
               <b>{r.customerName}</b>
               <small>{c ? `${c.name} · ${c.model}` : "Unknown car"} · CIN {r.cin}</small>
               <small>{dateText(r.startDate)} → {dateText(endDate(r))} · {money(r.totalPrice || r.days * r.pricePerDay)}</small>
             </div>
-            <span className={`pill ${left < 0 ? "danger" : ""}`}>{left < 0 ? `${Math.abs(left)}d overdue` : `${left}d left`}</span>
+            <CountdownBar rental={r} />
             <button className="ghost" onClick={() => onContract(r)}>Contract</button>
             <button className="ghost" onClick={() => onReturn(r.id)}>Return</button>
           </div>;
@@ -347,12 +425,15 @@ function Availability({ cars, rentals }) {
     <div className="availability">
       {cars.map((c) => {
         const r = rentals.find((x) => x.carId === c.id && !x.returned);
-        const left = r ? daysLeft(r) : null;
         return <div className="availability-row" key={c.id}>
           <div className={`status ${c.status}`} />
           <div className="avail-name"><b>{c.name} · {c.model}</b><small>{r ? `${r.customerName} · returns ${dateText(endDate(r))}` : `Ready · ${money(c.pricePerDay)}/day`}</small></div>
-          <div className="bar"><i style={{ width: r ? `${Math.max(5, Math.min(100, (left / r.days) * 100))}%` : "100%" }} /></div>
-          <span className={`pill ${left !== null && left < 0 ? "danger" : ""}`}>{r ? (left < 0 ? `${Math.abs(left)}d overdue` : `${left}d left`) : "Available"}</span>
+          {r ? <CountdownBar rental={r} /> : (
+            <>
+              <div className="bar"><i style={{ width: "100%" }} /></div>
+              <span className="pill">Available</span>
+            </>
+          )}
         </div>;
       })}
     </div>
