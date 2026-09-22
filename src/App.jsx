@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   connectFirebase,
@@ -425,17 +425,13 @@ function Rentals({ cars, rentals, onAdd, onReturn, onContract }) {
     <section className="panel">
       <h2>New rental</h2>
       <motion.form className="form" onSubmit={submit} variants={formStagger} initial="hidden" animate="show">
-        <motion.label variants={fieldVariants}>Car
-          <motion.select
+        <motion.div variants={fieldVariants}>
+          <CarSelect
             value={form.carId}
-            onChange={(e) => setForm({ ...form, carId: e.target.value })}
-            whileFocus={{ scale: 1.015, borderColor: "var(--amber)" }}
-            transition={{ duration: 0.15, ease: "easeOut" }}
-          >
-            <option value="">Select available car</option>
-            {available.map((c) => <option key={c.id} value={c.id}>{c.name} · {c.model} · {money(c.pricePerDay)}/day</option>)}
-          </motion.select>
-        </motion.label>
+            cars={available}
+            onChange={(value) => setForm({ ...form, carId: value })}
+          />
+        </motion.div>
         <Field label="Customer name" value={form.customerName} onChange={(v) => setForm({ ...form, customerName: v })} placeholder="Full name" />
         <Field label="CIN / ID" value={form.cin} onChange={(v) => setForm({ ...form, cin: v })} placeholder="ID number" />
         <Field label="Phone" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} placeholder="+212 ..." />
@@ -488,10 +484,16 @@ function Rentals({ cars, rentals, onAdd, onReturn, onContract }) {
 }
 
 function Availability({ cars, rentals }) {
+  const sortedCars = [...cars].sort((a, b) => {
+    const aAvailable = a.status === "available" ? 0 : 1;
+    const bAvailable = b.status === "available" ? 0 : 1;
+    return aAvailable - bAvailable;
+  });
+
   return <section className="panel">
     <div className="panel-head"><h2>Vehicle availability</h2><span>{cars.length} cars</span></div>
     <motion.div className="availability" variants={formStagger} initial="hidden" animate="show">
-      {cars.map((c) => {
+      {sortedCars.map((c) => {
         const r = rentals.find((x) => x.carId === c.id && !x.returned);
         return <motion.div className="availability-row" key={c.id} layout variants={fieldVariants}>
           <div className={`status ${c.status}`} />
@@ -506,6 +508,71 @@ function Availability({ cars, rentals }) {
       })}
     </motion.div>
   </section>;
+}
+
+function CarSelect({ value, cars, onChange }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  const selected = cars.find((c) => c.id === value);
+
+  useEffect(() => {
+    const handleOutside = (event) => {
+      if (ref.current && !ref.current.contains(event.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, []);
+
+  return (
+    <label className="custom-select-field" ref={ref}>
+      <span>Car</span>
+      <motion.button
+        type="button"
+        className={`custom-select-trigger ${open ? "open" : ""}`}
+        onClick={() => setOpen((prev) => !prev)}
+        whileTap={{ scale: 0.99 }}
+      >
+        <span className={selected ? "selected-value" : "placeholder"}>
+          {selected ? `${selected.name} · ${selected.model}` : "Select available car"}
+        </span>
+        <motion.span
+          className="select-chevron"
+          animate={{ rotate: open ? 180 : 0 }}
+          transition={{ duration: 0.18 }}
+        >⌄</motion.span>
+      </motion.button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            className="custom-select-menu"
+            initial={{ opacity: 0, y: -6, scale: 0.98 }}
+            animate={{ opacity: 1, y: 4, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.98 }}
+            transition={{ duration: 0.16, ease: "easeOut" }}
+          >
+            {cars.length === 0 ? (
+              <div className="custom-select-empty">No available cars</div>
+            ) : cars.map((car) => (
+              <motion.button
+                type="button"
+                key={car.id}
+                className={`custom-select-option ${car.id === value ? "active" : ""}`}
+                onClick={() => { onChange(car.id); setOpen(false); }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <span>
+                  <b>{car.name}</b>
+                  <small>{car.model} · {money(car.pricePerDay)}/day</small>
+                </span>
+                {car.id === value && <span className="select-check">✓</span>}
+              </motion.button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </label>
+  );
 }
 
 function ContractModal({ rental, car, onClose }) {
