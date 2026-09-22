@@ -297,11 +297,13 @@ select {
 }
 
 .ghost {
+    font-size: 14px;
+    font-weight: 500;
+    padding: 4px 8px;
     border: 1px solid var(--border-strong);
     background: var(--surface);
     color: var(--text);
-    border-radius: 9px;
-    padding: 8px 11px;
+    border-radius: 5px;
     cursor: pointer;
     white-space: nowrap
 }
@@ -394,7 +396,7 @@ select {
 
 .pill.returned {
     background: var(--surface-soft);
-    color: var(--text-muted);
+    color: green;
     border: 1px solid var(--border);
 }
 
@@ -469,6 +471,10 @@ select {
     margin-top: 8px
 }
 
+.rented-note{
+    margin-bottom: 10px;
+}
+
 .price {
     font-size: 14px;
     margin-top: 9px
@@ -501,18 +507,22 @@ select {
 }
 
 .availability-row {
-    display: flex;
-    align-items: center;
+     display: flex;
+    flex-direction: column;
+    align-items: start;
     gap: 11px;
     background: var(--surface-soft);
     border: 1px solid var(--border);
+    border-radius: 12px;
     padding: 13px;
-    border-radius: 12px
 }
 
+
 .avail-name {
-    min-width: 190px;
-    flex: 1
+    width: 100%;
+    flex: 1;
+    display: flex;
+    justify-content: space-between;
 }
 
 .avail-name b {
