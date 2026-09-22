@@ -177,9 +177,21 @@ export default function App() {
           {[
             ["dashboard", "Overview"], ["fleet", "Fleet"], ["rentals", "Rentals"], ["availability", "Availability"]
           ].map(([id, label]) => (
-            <button key={id} className={tab === id ? "nav active" : "nav"} onClick={() => setTab(id)}>
-              {label}
-            </button>
+            <motion.button
+              key={id}
+              className={tab === id ? "nav active" : "nav"}
+              onClick={() => setTab(id)}
+              whileTap={{ scale: 0.94 }}
+            >
+              {tab === id && (
+                <motion.span
+                  className="nav-indicator"
+                  layoutId="navIndicator"
+                  transition={{ type: "spring", stiffness: 500, damping: 34 }}
+                />
+              )}
+              <span className="nav-label">{label}</span>
+            </motion.button>
           ))}
         </nav>
         <div className="cloud-status"><span className="online-dot" /> Firebase connected</div>
@@ -200,22 +212,58 @@ export default function App() {
         </header>
 
         <div className="content">
-          {tab === "dashboard" && <Dashboard stats={stats} cars={cars} onReturn={returnRental} onContract={setContractRental} />}
-          {tab === "fleet" && <Fleet cars={cars} rentals={rentals} onAdd={addCar} onDelete={deleteCar} />}
-          {tab === "rentals" && <Rentals cars={cars} rentals={rentals} onAdd={addRental} onReturn={returnRental} onContract={setContractRental} />}
-          {tab === "availability" && <Availability cars={cars} rentals={rentals} />}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={tab}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.22, ease: "easeOut" }}
+            >
+              {tab === "dashboard" && <Dashboard stats={stats} cars={cars} onReturn={returnRental} onContract={setContractRental} />}
+              {tab === "fleet" && <Fleet cars={cars} rentals={rentals} onAdd={addCar} onDelete={deleteCar} />}
+              {tab === "rentals" && <Rentals cars={cars} rentals={rentals} onAdd={addRental} onReturn={returnRental} onContract={setContractRental} />}
+              {tab === "availability" && <Availability cars={cars} rentals={rentals} />}
+            </motion.div>
+          </AnimatePresence>
         </div>
       </main>
 
-      {saving && <div className="saving">Saving…</div>}
-      {toast && <div className="toast">{toast}</div>}
-      {contractRental && (
-        <ContractModal
-          rental={contractRental}
-          car={cars.find((c) => c.id === contractRental.carId)}
-          onClose={() => setContractRental(null)}
-        />
-      )}
+      <AnimatePresence>
+        {saving && (
+          <motion.div
+            className="saving"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            transition={{ duration: 0.2 }}
+          >
+            Saving…
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            className="toast"
+            initial={{ opacity: 0, y: 12, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 12, scale: 0.96 }}
+            transition={{ duration: 0.22, ease: "easeOut" }}
+          >
+            {toast}
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {contractRental && (
+          <ContractModal
+            rental={contractRental}
+            car={cars.find((c) => c.id === contractRental.carId)}
+            onClose={() => setContractRental(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -270,30 +318,32 @@ function Dashboard({ stats, cars, onReturn, onContract }) {
       <section className="panel">
         <div className="panel-head"><h2>Due back soon</h2><span>{stats.overdue} overdue</span></div>
         {upcoming.length === 0 ? <Empty text="No active rentals right now." /> : (
-          <div className="list">
-            {upcoming.map((r) => {
-              const car = cars.find((c) => c.id === r.carId);
-              const left = daysLeft(r);
-              return <div className="list-row" key={r.id}>
-                <div><b>{car ? `${car.name} · ${car.model}` : "Unknown car"}</b><small>{r.customerName} · CIN {r.cin}</small></div>
-                <CountdownBar rental={r} />
-                <div className="list-btn">
-                <button className="ghost" onClick={() => onContract(r)}>Contract</button>
-                <button className="ghost" onClick={() => onReturn(r.id)}>Return</button>
-                </div>
-              </div>;
-            })}
-          </div>
+          <motion.div className="list" variants={formStagger} initial="hidden" animate="show">
+            <AnimatePresence>
+              {upcoming.map((r) => {
+                const car = cars.find((c) => c.id === r.carId);
+                const left = daysLeft(r);
+                return <motion.div className="list-row" key={r.id} layout variants={fieldVariants} exit={{ opacity: 0, x: -12 }}>
+                  <div><b>{car ? `${car.name} · ${car.model}` : "Unknown car"}</b><small>{r.customerName} · CIN {r.cin}</small></div>
+                  <CountdownBar rental={r} />
+                  <div className="list-btn">
+                  <motion.button className="ghost" onClick={() => onContract(r)} whileTap={{ scale: 0.95 }}>Contract</motion.button>
+                  <motion.button className="ghost" onClick={() => onReturn(r.id)} whileTap={{ scale: 0.95 }}>Return</motion.button>
+                  </div>
+                </motion.div>;
+              })}
+            </AnimatePresence>
+          </motion.div>
         )}
       </section>
       <section className="panel">
         <div className="panel-head"><h2>At a glance</h2></div>
-        <div className="glance">
-          <div><strong>{stats.available}</strong><span>ready to rent</span></div>
-          <div><strong>{stats.rented}</strong><span>with customers</span></div>
-          <div><strong className={stats.overdue ? "danger-text" : ""}>{stats.overdue}</strong><span>overdue returns</span></div>
-          <div><strong>{money(stats.revenue)}</strong><span>lifetime revenue</span></div>
-        </div>
+        <motion.div className="glance" variants={formStagger} initial="hidden" animate="show">
+          <motion.div variants={fieldVariants}><strong>{stats.available}</strong><span>ready to rent</span></motion.div>
+          <motion.div variants={fieldVariants}><strong>{stats.rented}</strong><span>with customers</span></motion.div>
+          <motion.div variants={fieldVariants}><strong className={stats.overdue ? "danger-text" : ""}>{stats.overdue}</strong><span>overdue returns</span></motion.div>
+          <motion.div variants={fieldVariants}><strong>{money(stats.revenue)}</strong><span>lifetime revenue</span></motion.div>
+        </motion.div>
       </section>
     </div>
   );
@@ -310,29 +360,38 @@ function Fleet({ cars, rentals, onAdd, onDelete }) {
   return <div className="grid">
     <section className="panel">
       <h2>Add a car</h2>
-      <form className="form" onSubmit={submit}>
+      <motion.form className="form" onSubmit={submit} variants={formStagger} initial="hidden" animate="show">
         <Field label="Make / name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} placeholder="e.g. Volkswagen Golf" />
         <Field label="Model / trim" value={form.model} onChange={(v) => setForm({ ...form, model: v })} placeholder="e.g. 7 GTI 2022" />
         <Field label="License plate" value={form.plate} onChange={(v) => setForm({ ...form, plate: v })} placeholder="e.g. 12345-A-6" />
         <Field label="Color" value={form.color} onChange={(v) => setForm({ ...form, color: v })} placeholder="e.g. Black" />
         <Field label="Price per day (MAD)" type="number" value={form.pricePerDay} onChange={(v) => setForm({ ...form, pricePerDay: v })} placeholder="350" />
-        <button className="primary">Add car</button>
-      </form>
+        <motion.button className="primary" variants={fieldVariants} whileTap={{ scale: 0.97 }}>Add car</motion.button>
+      </motion.form>
     </section>
     <section className="panel">
       <div className="panel-head"><h2>Fleet ({cars.length})</h2></div>
-      {cars.length === 0 ? <Empty text="No cars yet." /> : <div className="cards">
-        {cars.map((c) => {
-          const active = rentals.find((r) => r.carId === c.id && !r.returned);
-          return <article className="car-card" key={c.id}>
-            <div className="car-top"><div><b>{c.name}</b><small>{c.model}</small></div><span className={`status ${c.status}`} /></div>
-            <div className="car-meta">{c.plate || "No plate"} {c.color ? `· ${c.color}` : ""}</div>
-            <div className="price">{money(c.pricePerDay)}<small>/day</small></div>
-            {active && <div className="rented-note">With {active.customerName} · {daysLeft(active)}d left</div>}
-            <button className="ghost" onClick={() => onDelete(c.id)}>Remove</button>
-          </article>;
-        })}
-      </div>}
+      {cars.length === 0 ? <Empty text="No cars yet." /> : <motion.div className="cards" variants={formStagger} initial="hidden" animate="show">
+        <AnimatePresence>
+          {cars.map((c) => {
+            const active = rentals.find((r) => r.carId === c.id && !r.returned);
+            return <motion.article
+              className="car-card"
+              key={c.id}
+              layout
+              variants={fieldVariants}
+              exit={{ opacity: 0, scale: 0.95 }}
+              whileHover={{ y: -2 }}
+            >
+              <div className="car-top"><div><b>{c.name}</b><small>{c.model}</small></div><span className={`status ${c.status}`} /></div>
+              <div className="car-meta">{c.plate || "No plate"} {c.color ? `· ${c.color}` : ""}</div>
+              <div className="price">{money(c.pricePerDay)}<small>/day</small></div>
+              {active && <div className="rented-note">With {active.customerName} · {daysLeft(active)}d left</div>}
+              <motion.button className="ghost" onClick={() => onDelete(c.id)} whileTap={{ scale: 0.95 }}>Remove</motion.button>
+            </motion.article>;
+          })}
+        </AnimatePresence>
+      </motion.div>}
     </section>
   </div>;
 }
@@ -365,16 +424,23 @@ function Rentals({ cars, rentals, onAdd, onReturn, onContract }) {
   return <div className="grid">
     <section className="panel">
       <h2>New rental</h2>
-      <form className="form" onSubmit={submit}>
-        <label>Car<select value={form.carId} onChange={(e) => setForm({ ...form, carId: e.target.value })}>
-          <option value="">Select available car</option>
-          {available.map((c) => <option key={c.id} value={c.id}>{c.name} · {c.model} · {money(c.pricePerDay)}/day</option>)}
-        </select></label>
+      <motion.form className="form" onSubmit={submit} variants={formStagger} initial="hidden" animate="show">
+        <motion.label variants={fieldVariants}>Car
+          <motion.select
+            value={form.carId}
+            onChange={(e) => setForm({ ...form, carId: e.target.value })}
+            whileFocus={{ scale: 1.015, borderColor: "var(--amber)" }}
+            transition={{ duration: 0.15, ease: "easeOut" }}
+          >
+            <option value="">Select available car</option>
+            {available.map((c) => <option key={c.id} value={c.id}>{c.name} · {c.model} · {money(c.pricePerDay)}/day</option>)}
+          </motion.select>
+        </motion.label>
         <Field label="Customer name" value={form.customerName} onChange={(v) => setForm({ ...form, customerName: v })} placeholder="Full name" />
         <Field label="CIN / ID" value={form.cin} onChange={(v) => setForm({ ...form, cin: v })} placeholder="ID number" />
         <Field label="Phone" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} placeholder="+212 ..." />
         <Field label="Rental days" type="number" value={form.days} onChange={(v) => setForm({ ...form, days: v })} />
-        <motion.div className="total" layout transition={{ duration: 0.3, ease: "easeOut" }}>
+        <motion.div className="total" layout variants={fieldVariants} transition={{ duration: 0.3, ease: "easeOut" }}>
           <span>Total price</span>
           <AnimatePresence mode="popLayout" initial={false}>
             <motion.strong
@@ -388,33 +454,35 @@ function Rentals({ cars, rentals, onAdd, onReturn, onContract }) {
             </motion.strong>
           </AnimatePresence>
         </motion.div>
-        <button className="primary" disabled={!available.length}>{available.length ? "Start rental" : "No cars available"}</button>
-      </form>
+        <motion.button className="primary" variants={fieldVariants} whileTap={{ scale: 0.97 }} disabled={!available.length}>{available.length ? "Start rental" : "No cars available"}</motion.button>
+      </motion.form>
     </section>
 
     <section className="panel">
       <div className="panel-head"><h2>Active rentals ({active.length})</h2></div>
-      {active.length === 0 ? <Empty text="No active rentals." /> : <div className="list">
-        {active.map((r) => {
-          const c = cars.find((x) => x.id === r.carId);
-          return <div className="rental-row" key={r.id}>
-            <div className="rental-main">
-              <b>{r.customerName}</b>
-              <small>{c ? `${c.name} · ${c.model}` : "Unknown car"} · CIN {r.cin}</small>
-              <small>{dateText(r.startDate)} → {dateText(endDate(r))} · {money(r.totalPrice || r.days * r.pricePerDay)}</small>
-            </div>
-            <CountdownBar rental={r} />
-            <button className="ghost" onClick={() => onContract(r)}>Contract</button>
-            <button className="ghost" onClick={() => onReturn(r.id)}>Return</button>
-          </div>;
-        })}
-      </div>}
-      {history.length > 0 && <><h2 className="history-title">Rental history ({history.length})</h2><div className="list">
-        {history.slice(0, 10).map((r) => <div className="rental-row muted" key={r.id}>
+      {active.length === 0 ? <Empty text="No active rentals." /> : <motion.div className="list" variants={formStagger} initial="hidden" animate="show">
+        <AnimatePresence>
+          {active.map((r) => {
+            const c = cars.find((x) => x.id === r.carId);
+            return <motion.div className="rental-row" key={r.id} layout variants={fieldVariants} exit={{ opacity: 0, x: -12 }}>
+              <div className="rental-main">
+                <b>{r.customerName}</b>
+                <small>{c ? `${c.name} · ${c.model}` : "Unknown car"} · CIN {r.cin}</small>
+                <small>{dateText(r.startDate)} → {dateText(endDate(r))} · {money(r.totalPrice || r.days * r.pricePerDay)}</small>
+              </div>
+              <CountdownBar rental={r} />
+              <motion.button className="ghost" onClick={() => onContract(r)} whileTap={{ scale: 0.95 }}>Contract</motion.button>
+              <motion.button className="ghost" onClick={() => onReturn(r.id)} whileTap={{ scale: 0.95 }}>Return</motion.button>
+            </motion.div>;
+          })}
+        </AnimatePresence>
+      </motion.div>}
+      {history.length > 0 && <><h2 className="history-title">Rental history ({history.length})</h2><motion.div className="list" variants={formStagger} initial="hidden" animate="show">
+        {history.slice(0, 10).map((r) => <motion.div className="rental-row muted" key={r.id} layout variants={fieldVariants}>
           <div className="rental-main"><b>{r.customerName}</b><small>{cars.find((c) => c.id === r.carId)?.name || "Unknown car"} · {money(r.totalPrice || r.days * r.pricePerDay)}</small><small>Returned {dateTimeText(r.returnedAt)}</small></div>
-          <span className="pill returned">Returned</span><button className="ghost" onClick={() => onContract(r)}>Contract</button>
-        </div>)}
-      </div></>}
+          <span className="pill returned">Returned</span><motion.button className="ghost" onClick={() => onContract(r)} whileTap={{ scale: 0.95 }}>Contract</motion.button>
+        </motion.div>)}
+      </motion.div></>}
     </section>
   </div>;
 }
@@ -422,30 +490,43 @@ function Rentals({ cars, rentals, onAdd, onReturn, onContract }) {
 function Availability({ cars, rentals }) {
   return <section className="panel">
     <div className="panel-head"><h2>Vehicle availability</h2><span>{cars.length} cars</span></div>
-    <div className="availability">
+    <motion.div className="availability" variants={formStagger} initial="hidden" animate="show">
       {cars.map((c) => {
         const r = rentals.find((x) => x.carId === c.id && !x.returned);
-        return <div className="availability-row" key={c.id}>
+        return <motion.div className="availability-row" key={c.id} layout variants={fieldVariants}>
           <div className={`status ${c.status}`} />
           <div className="avail-name"><b>{c.name} · {c.model}</b><small>{r ? `${r.customerName} · returns ${dateText(endDate(r))}` : `Ready · ${money(c.pricePerDay)}/day`}</small></div>
           {r ? <CountdownBar rental={r} /> : (
             <>
-              <div className="bar"><i style={{ width: "100%" }} /></div>
+              <div className="bar"><motion.i initial={{ width: 0 }} animate={{ width: "100%" }} transition={{ duration: 0.6, ease: "easeOut" }} /></div>
               <span className="pill">Available</span>
             </>
           )}
-        </div>;
+        </motion.div>;
       })}
-    </div>
+    </motion.div>
   </section>;
 }
 
 function ContractModal({ rental, car, onClose }) {
-  return <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-    <div className="contract-modal">
+  return <motion.div
+    className="modal-backdrop"
+    onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    exit={{ opacity: 0 }}
+    transition={{ duration: 0.18 }}
+  >
+    <motion.div
+      className="contract-modal"
+      initial={{ opacity: 0, y: 24, scale: 0.97 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: 16, scale: 0.97 }}
+      transition={{ duration: 0.25, ease: "easeOut" }}
+    >
       <div className="modal-actions">
-        <button className="ghost" onClick={onClose}>Close</button>
-        <button className="primary" onClick={() => window.print()}>Print contract</button>
+        <motion.button className="ghost" onClick={onClose} whileTap={{ scale: 0.95 }}>Close</motion.button>
+        <motion.button className="primary" onClick={() => window.print()} whileTap={{ scale: 0.95 }}>Print contract</motion.button>
       </div>
       <div className="contract" id="print-contract">
         <header className="contract-header">
@@ -488,14 +569,38 @@ function ContractModal({ rental, car, onClose }) {
         </div>
         <footer>Generated from Rental Cars Manager · {dateTimeText(new Date())}</footer>
       </div>
-    </div>
-  </div>;
+    </motion.div>
+  </motion.div>;
 }
 
 function Info({ title, rows }) {
   return <div className="info-box"><h3>{title}</h3>{rows.map(([a,b]) => <div className="info-row" key={a}><span>{a}</span><b>{b}</b></div>)}</div>;
 }
+
+const fieldVariants = {
+  hidden: { opacity: 0, y: 10 },
+  show: { opacity: 1, y: 0 },
+};
+
 function Field({ label, value, onChange, type = "text", placeholder = "" }) {
-  return <label>{label}<input type={type} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} /></label>;
+  return (
+    <motion.label variants={fieldVariants}>
+      {label}
+      <motion.input
+        type={type}
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        whileFocus={{ scale: 1.015, borderColor: "var(--amber)" }}
+        whileTap={{ scale: 0.99 }}
+        transition={{ duration: 0.15, ease: "easeOut" }}
+      />
+    </motion.label>
+  );
 }
 function Empty({ text }) { return <div className="empty">{text}</div>; }
+
+const formStagger = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.05, delayChildren: 0.04 } },
+};

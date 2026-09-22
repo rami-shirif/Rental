@@ -2,9 +2,31 @@
 
 :root {
     font-family: "Space Grotesk", sans-serif;
-    color: #eceef1;
-    background: #111318;
-    font-synthesis: none
+    color: #1a1d23;
+    background: #f4f5f8;
+    font-synthesis: none;
+
+    --bg: #f4f5f8;
+    --shell: #f7f8fa;
+    --surface: #ffffff;
+    --surface-soft: #f1f2f6;
+    --border: rgba(20, 22, 30, .08);
+    --border-strong: rgba(20, 22, 30, .14);
+    --text: #1a1d23;
+    --text-muted: #6b7280;
+    --text-faint: #9aa0ab;
+    --amber: #d97706;
+    --amber-bg: #f0a93a;
+    --amber-soft: rgba(217, 119, 6, .12);
+    --teal: #0f9488;
+    --teal-soft: rgba(15, 148, 136, .12);
+    --danger: #dc4b31;
+    --danger-soft: rgba(220, 75, 49, .12);
+    --shadow-sm: 0 1px 2px rgba(20, 22, 30, .04), 0 1px 1px rgba(20, 22, 30, .03);
+    --shadow-md: 0 8px 24px rgba(20, 22, 30, .08);
+    --shadow-lg: 0 20px 60px rgba(20, 22, 30, .16);
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 * {
@@ -13,14 +35,20 @@
 
 body {
     margin: 0;
-    background: #111318
+    background: var(--bg);
+}
+
+html {
+    scroll-padding-top: env(safe-area-inset-top, 0px);
 }
 
 .loading {
     min-height: 100vh;
     display: grid;
     place-items: center;
-    color: #9aa0ab
+    color: var(--text-muted);
+    background: var(--bg);
+    font-size: 15px;
 }
 
 button,
@@ -30,17 +58,19 @@ select {
 }
 
 .app-shell {
-    min-height: 100vh;
+    min-height: 100%;
+    height: 100%;
     display: flex;
-    background: #15171c;
-    color: #eceef1
+    background: var(--shell);
+    color: var(--text)
 }
 
 .sidebar {
     width: 230px;
-    background: #1c1f25;
-    border-right: 1px solid rgba(255, 255, 255, .08);
+    background: var(--surface);
+    border-right: 1px solid var(--border);
     padding: 22px 14px;
+    padding-top: calc(22px + env(safe-area-inset-top, 0px));
     display: flex;
     flex-direction: column
 }
@@ -51,7 +81,7 @@ select {
 }
 
 .brand-mark {
-    color: #f0a93a;
+    color: var(--amber);
     margin-right: 7px
 }
 
@@ -65,35 +95,53 @@ select {
 .nav {
     border: 0;
     background: transparent;
-    color: #9aa0ab;
+    color: var(--text-muted);
     text-align: left;
     padding: 11px 12px;
-    border-radius: 8px;
-    cursor: pointer
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: color .15s ease;
+    position: relative;
 }
 
 .nav:hover {
-    background: #242831;
-    color: #fff
+    background: var(--surface-soft);
+    color: var(--text)
 }
 
 .nav.active {
-    background: rgba(240, 169, 58, .14);
-    color: #f0a93a
+    background: transparent;
+    color: var(--amber);
+    font-weight: 600;
+}
+
+.nav-indicator {
+    position: absolute;
+    inset: 0;
+    background: var(--amber-soft);
+    border-radius: 10px;
+    z-index: 0;
+}
+
+.nav-label {
+    position: relative;
+    z-index: 1;
 }
 
 .cloud-status {
     font-size: 12px;
-    color: #9aa0ab;
+    color: var(--text-faint);
     padding: 12px 8px;
-    border-top: 1px solid rgba(255, 255, 255, .08)
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--border)
 }
 
 .online-dot {
     display: inline-block;
     width: 7px;
     height: 7px;
-    background: #3fbfaa;
+    background: var(--teal);
     border-radius: 50%;
     margin-right: 7px
 }
@@ -105,17 +153,19 @@ select {
 
 .topbar {
     padding: 24px 30px;
-    border-bottom: 1px solid rgba(255, 255, 255, .08);
+    padding-top: calc(24px + env(safe-area-inset-top, 0px));
+    border-bottom: 1px solid var(--border);
     display: flex;
     justify-content: space-between;
     align-items: end;
-    gap: 20px
+    gap: 20px;
+    background: var(--surface);
 }
 
 .eyebrow {
     font-size: 10px;
     letter-spacing: .12em;
-    color: #777e8a
+    color: var(--text-faint)
 }
 
 .topbar h1 {
@@ -137,22 +187,23 @@ select {
 
 .stat span {
     font-size: 10px;
-    color: #858c97;
+    color: var(--text-faint);
     text-transform: uppercase;
     letter-spacing: .06em
 }
 
 .stat strong {
     font-family: "JetBrains Mono";
-    font-size: 17px
+    font-size: 17px;
+    color: var(--text);
 }
 
 .stat.teal strong {
-    color: #3fbfaa
+    color: var(--teal)
 }
 
 .stat.amber strong {
-    color: #f0a93a
+    color: var(--amber)
 }
 
 .content {
@@ -166,10 +217,11 @@ select {
 }
 
 .panel {
-    background: #1c1f25;
-    border: 1px solid rgba(255, 255, 255, .08);
-    border-radius: 11px;
-    padding: 19px
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 19px;
+    box-shadow: var(--shadow-sm);
 }
 
 .panel-head {
@@ -181,7 +233,7 @@ select {
 
 .panel-head span {
     font-size: 12px;
-    color: #9aa0ab
+    color: var(--text-muted)
 }
 
 .panel h2 {
@@ -196,7 +248,7 @@ select {
 .form {
     display: flex;
     flex-direction: column;
-    gap: 12px
+    gap: 14px
 }
 
 .form label,
@@ -204,64 +256,69 @@ select {
     display: flex;
     flex-direction: column;
     gap: 6px;
-    color: #9aa0ab;
-    font-size: 12px
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 500;
 }
 
 .form input,
 .form select {
     width: 100%;
-    background: #242831;
-    border: 1px solid rgba(255, 255, 255, .08);
-    color: #eceef1;
-    border-radius: 7px;
-    padding: 10px 11px;
-    outline: none
+    background: var(--surface-soft);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 9px;
+    padding: 11px 12px;
+    outline: none;
+    transition: border-color .15s ease, background .15s ease;
 }
 
 .form input:focus,
 .form select:focus {
-    border-color: #f0a93a
+    border-color: var(--amber);
+    background: var(--surface);
 }
 
 .primary {
     border: 0;
-    background: #f0a93a;
-    color: #231805;
+    background: var(--amber-bg);
+    color: #2a1a03;
     font-weight: 700;
-    border-radius: 7px;
-    padding: 10px 14px;
-    cursor: pointer
+    border-radius: 9px;
+    padding: 11px 14px;
+    cursor: pointer;
+    box-shadow: 0 6px 16px rgba(217, 119, 6, .25);
 }
 
 .primary:disabled {
     opacity: .45;
-    cursor: not-allowed
+    cursor: not-allowed;
+    box-shadow: none;
 }
 
 .ghost {
-    border: 1px solid rgba(255, 255, 255, .1);
-    background: transparent;
-    color: #eceef1;
-    border-radius: 7px;
-    padding: 7px 10px;
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
+    color: var(--text);
+    border-radius: 9px;
+    padding: 8px 11px;
     cursor: pointer;
     white-space: nowrap
 }
 
 .ghost:hover {
-    border-color: #f0a93a;
-    color: #f0a93a
+    border-color: var(--amber);
+    color: var(--amber)
 }
 
 .total {
-    background: #242831;
-    border-radius: 7px;
-    padding: 12px;
+    background: var(--surface-soft);
+    border-radius: 10px;
+    padding: 13px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    color: #9aa0ab;
+    color: var(--text-muted);
     position: relative;
     overflow: hidden
 }
@@ -272,14 +329,14 @@ select {
 
 .total strong,
 .price {
-    color: #f0a93a;
+    color: var(--amber);
     font-family: "JetBrains Mono"
 }
 
 .list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 9px;
 }
 
 .list-row,
@@ -288,9 +345,10 @@ select {
     flex-direction: column;
     align-items: start;
     gap: 11px;
-    background: #242831;
-    border-radius: 8px;
-    padding: 11px;
+    background: var(--surface-soft);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 13px;
 
 }
 
@@ -314,7 +372,7 @@ select {
 .list-row small,
 .rental-main small {
     display: block;
-    color: #9aa0ab;
+    color: var(--text-muted);
     font-size: 11px;
     margin-top: 3px
 }
@@ -324,23 +382,24 @@ select {
     font-size: 11px;
     padding: 4px 8px;
     border-radius: 20px;
-    background: rgba(63, 191, 170, .14);
-    color: #3fbfaa;
+    background: var(--teal-soft);
+    color: var(--teal);
     white-space: nowrap
 }
 
 .pill.danger {
-    background: rgba(226, 96, 61, .16);
-    color: #e2603d
+    background: var(--danger-soft);
+    color: var(--danger)
 }
 
 .pill.returned {
-    background: #1c1f25;
-    color: #9aa0ab
+    background: var(--surface-soft);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
 }
 
 .danger-text {
-    color: #e2603d
+    color: var(--danger)
 }
 
 .glance {
@@ -352,11 +411,12 @@ select {
 .glance strong {
     display: block;
     font-family: "JetBrains Mono";
-    font-size: 22px
+    font-size: 22px;
+    color: var(--text);
 }
 
 .glance span {
-    color: #9aa0ab;
+    color: var(--text-muted);
     font-size: 11px
 }
 
@@ -367,9 +427,10 @@ select {
 }
 
 .car-card {
-    background: #242831;
-    border-radius: 9px;
-    padding: 13px
+    background: var(--surface-soft);
+    border: 1px solid var(--border);
+    border-radius: 13px;
+    padding: 14px
 }
 
 .car-top {
@@ -384,7 +445,7 @@ select {
 
 .car-top small {
     display: block;
-    color: #9aa0ab;
+    color: var(--text-muted);
     font-size: 11px
 }
 
@@ -392,19 +453,19 @@ select {
     width: 9px;
     height: 9px;
     border-radius: 50%;
-    background: #3fbfaa;
+    background: var(--teal);
     margin-top: 4px;
     flex: none
 }
 
 .status.rented {
-    background: #f0a93a
+    background: var(--amber)
 }
 
 .car-meta,
 .rented-note {
     font-size: 11px;
-    color: #9aa0ab;
+    color: var(--text-muted);
     margin-top: 8px
 }
 
@@ -415,7 +476,7 @@ select {
 
 .price small {
     font-family: inherit;
-    color: #9aa0ab;
+    color: var(--text-muted);
     margin-left: 4px
 }
 
@@ -424,12 +485,12 @@ select {
 }
 
 .muted {
-    opacity: .65
+    opacity: .7
 }
 
 .empty {
     padding: 30px 5px;
-    color: #9aa0ab;
+    color: var(--text-muted);
     font-size: 13px
 }
 
@@ -443,9 +504,10 @@ select {
     display: flex;
     align-items: center;
     gap: 11px;
-    background: #242831;
-    padding: 12px;
-    border-radius: 8px
+    background: var(--surface-soft);
+    border: 1px solid var(--border);
+    padding: 13px;
+    border-radius: 12px
 }
 
 .avail-name {
@@ -460,14 +522,14 @@ select {
 
 .avail-name small {
     display: block;
-    color: #9aa0ab;
+    color: var(--text-muted);
     font-size: 11px;
     margin-top: 3px
 }
 
 .bar {
     height: 6px;
-    background: #1c1f25;
+    background: var(--border);
     border-radius: 5px;
     overflow: hidden;
     flex: 1
@@ -476,7 +538,7 @@ select {
 .bar i {
     display: block;
     height: 100%;
-    background: #3fbfaa;
+    background: var(--teal);
     border-radius: 5px
 }
 
@@ -491,7 +553,7 @@ select {
 
 .countdown-bar {
     height: 6px;
-    background: #1c1f25;
+    background: var(--border);
     border-radius: 5px;
     overflow: hidden;
     flex: 1
@@ -501,31 +563,31 @@ select {
     display: block;
     height: 100%;
     border-radius: 5px;
-    background: #3fbfaa
+    background: var(--teal)
 }
 
 .countdown.urgent .countdown-bar i {
-    background: #f0a93a
+    background: var(--amber)
 }
 
 .countdown.danger .countdown-bar i {
-    background: #e2603d
+    background: var(--danger)
 }
 
 .countdown-timer {
     font-family: "JetBrains Mono";
     font-size: 11px;
     white-space: nowrap;
-    color: #3fbfaa;
+    color: var(--teal);
     flex: none
 }
 
 .countdown.urgent .countdown-timer {
-    color: #f0a93a
+    color: var(--amber)
 }
 
 .countdown.danger .countdown-timer {
-    color: #e2603d
+    color: var(--danger)
 }
 
 @keyframes countdown-pulse {
@@ -541,24 +603,27 @@ select {
 .toast {
     position: fixed;
     z-index: 20;
-    bottom: 18px;
+    bottom: calc(18px + env(safe-area-inset-bottom, 0px));
     left: 50%;
     transform: translateX(-50%);
-    background: #242831;
-    border: 1px solid rgba(255, 255, 255, .1);
-    padding: 9px 14px;
-    border-radius: 8px;
-    font-size: 12px
+    background: var(--text);
+    color: var(--surface);
+    border: 1px solid var(--border-strong);
+    padding: 10px 16px;
+    border-radius: 10px;
+    font-size: 12px;
+    box-shadow: var(--shadow-md);
 }
 
 .toast {
-    bottom: 62px
+    bottom: calc(62px + env(safe-area-inset-bottom, 0px))
 }
 
 .modal-backdrop {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, .72);
+    background: rgba(20, 22, 30, .55);
+    backdrop-filter: blur(3px);
     z-index: 30;
     display: flex;
     justify-content: center;
@@ -583,7 +648,8 @@ select {
     color: #17191d;
     padding: 42px;
     min-height: 1000px;
-    box-shadow: 0 15px 50px rgba(0, 0, 0, .4)
+    border-radius: 16px;
+    box-shadow: var(--shadow-lg)
 }
 
 .contract-header {
@@ -632,6 +698,7 @@ select {
 
 .info-box {
     border: 1px solid #d8dadd;
+    border-radius: 10px;
     padding: 13px
 }
 
@@ -658,6 +725,7 @@ select {
 
 .terms {
     border: 1px solid #d8dadd;
+    border-radius: 10px;
     padding: 14px;
     margin-top: 18px
 }
@@ -732,27 +800,52 @@ select {
     }
 }
 
+/* App-like mobile layout: sidebar becomes a fixed bottom tab bar */
 @media(max-width:620px) {
     .app-shell {
-        display: block
+        display: block;
+        padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
     }
 
     .sidebar {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        top: auto;
+        z-index: 15;
         width: 100%;
-        padding: 13px
+        padding: 8px 10px;
+        padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+        border-right: 0;
+        border-top: 1px solid var(--border);
+        box-shadow: 0 -6px 20px rgba(20, 22, 30, .06);
+    }
+
+    .brand {
+        display: none;
     }
 
     .sidebar nav {
         flex-direction: row;
-        overflow: auto
+        gap: 2px;
+        flex: none;
+    }
+
+    .nav {
+        flex: 1;
+        text-align: center;
+        font-size: 11px;
+        padding: 9px 4px;
     }
 
     .cloud-status {
         display: none
     }
 
-    .brand {
-        padding: 5px 7px 12px
+    .topbar {
+        padding: 18px 16px;
+        padding-top: calc(18px + env(safe-area-inset-top, 0px));
     }
 
     .cards {

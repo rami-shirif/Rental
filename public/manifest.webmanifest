@@ -1,0 +1,11 @@
+{
+  "name": "Rental Cars Manager",
+  "short_name": "Rental Cars",
+  "description": "Manage your fleet, rentals and contracts.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7f7f9",
+  "theme_color": "#f7f7f9",
+  "orientation": "portrait-primary",
+  "icons": []
+}
