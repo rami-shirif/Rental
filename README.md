@@ -1,5 +1,6 @@
 # Rental Cars Manager — Firebase + Printable Contracts
-
+firebase: hedraf
+apps script: hedraf
 A small-agency fleet/rental manager upgraded to use **Firebase Realtime Database** instead of browser-only storage.
 
 ## Included
