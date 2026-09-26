@@ -1,6 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, signInAnonymously } from "firebase/auth";
-import { getDatabase, ref, get, set, push, remove } from "firebase/database";
+import { getDatabase, ref, get, set, remove } from "firebase/database";
 
 const firebaseConfig = {
   apiKey: "AIzaSyD_mEgfFs7KBY20rK-rWhSAlzYl3DwPgdk",
@@ -13,14 +12,11 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
+
 export const db = getDatabase(app);
 
 export async function connectFirebase() {
-  if (!auth.currentUser) {
-    await signInAnonymously(auth);
-  }
-  return auth.currentUser;
+  return db;
 }
 
 export async function readCollection(path) {
