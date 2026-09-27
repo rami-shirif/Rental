@@ -623,7 +623,7 @@ function RentalCalendar({ cars, rentals, onContract }) {
     <section className="panel">
       <div className="calendar-head">
         <div>
-          <div className="eyebrow">RENTAL SCHEDULE</div>
+        
           <h2>{monthLabel(cursor)}</h2>
           <span className="calendar-subtitle">{monthRentals.length} rental{monthRentals.length === 1 ? "" : "s"} in this month</span>
         </div>
@@ -760,7 +760,7 @@ function CustomerHistory({ cars, rentals, onReturn, onContract, onAdd }) {
   return <div className="customer-page">
     <section className="panel">
       <div className="customer-head">
-        <div><div className="eyebrow">CUSTOMER DATABASE</div><h2>Customer history</h2><span className="calendar-subtitle">{customers.length} customer{customers.length === 1 ? '' : 's'} from your rental records</span></div>
+        <div><h2>Customer history</h2><span className="calendar-subtitle">{customers.length} customer{customers.length === 1 ? '' : 's'} from your rental records</span></div>
         <div className="customer-search"><span>⌕</span><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, CIN or phone" /></div>
       </div>
       {filtered.length === 0 ? <Empty text={search ? "No customers match your search." : "No customer history yet."} /> : <motion.div className="customer-cards" variants={formStagger} initial="hidden" animate="show">
