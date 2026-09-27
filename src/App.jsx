@@ -101,6 +101,10 @@ export default function App() {
   function setTab(nextTab) {
     setTabState(validTabs.includes(nextTab) ? nextTab : "dashboard");
   }
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [tab]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState("");
