@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { jsPDF } from "jspdf";
 import {
   connectFirebase,
   readCollection,
@@ -14,27 +13,19 @@ const DAY_MS = 86400000;
 const HOUR_MS = 3600000;
 const MIN_MS = 60000;
 const money = (n) => `${Number(n || 0).toLocaleString("en-US", { maximumFractionDigits: 2 })} MAD`;
-const safeDate = (value) => {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
-};
-const dateText = (value) => (safeDate(value) || new Date()).toLocaleDateString("en-GB", {
+const dateText = (value) => new Date(value).toLocaleDateString("en-GB", {
   day: "2-digit", month: "short", year: "numeric"
 });
-const dateTimeText = (value) => (safeDate(value) || new Date()).toLocaleString("en-GB", {
+const dateTimeText = (value) => new Date(value).toLocaleString("en-GB", {
   day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit"
 });
 const pad2 = (n) => String(Math.max(0, n)).padStart(2, "0");
 
 function endDate(rental) {
-  const start = safeDate(rental?.startDate);
-  const days = Number(rental?.days);
-  if (!start || !Number.isFinite(days)) return new Date();
-  return new Date(start.getTime() + Math.max(0, days) * DAY_MS);
+  return new Date(new Date(rental.startDate).getTime() + Number(rental.days) * DAY_MS);
 }
 function daysLeft(rental) {
-  const end = endDate(rental);
-  return Math.ceil((end.getTime() - Date.now()) / DAY_MS);
+  return Math.ceil((endDate(rental).getTime() - Date.now()) / DAY_MS);
 }
 
 // Breaks a millisecond duration into whole days / hours / minutes / seconds.
@@ -49,6 +40,47 @@ function splitDuration(ms) {
 }
 
 // Ticks once a second so any component using it re-renders with a live clock.
+class PageErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, message: "" };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, message: error?.message || "This page could not be displayed." };
+  }
+
+  componentDidCatch(error, info) {
+    console.error("Page render error:", error, info);
+  }
+
+  componentDidUpdate(prevProps) {
+    if (prevProps.pageKey !== this.props.pageKey && this.state.hasError) {
+      this.setState({ hasError: false, message: "" });
+    }
+  }
+
+  render() {
+    if (!this.state.hasError) return this.props.children;
+    return (
+      <section className="panel" style={{ minHeight: 260, display: "grid", placeItems: "center", textAlign: "center" }}>
+        <div>
+          <div style={{ fontSize: 42, marginBottom: 10 }}>⚠️</div>
+          <h2>We couldn't display this page</h2>
+          <p style={{ opacity: 0.7, maxWidth: 520, margin: "8px auto 18px" }}>
+            The rest of the app is still available. This usually means one saved Firebase record has an unexpected value.
+          </p>
+          <button type="button" className="primary" onClick={() => { this.setState({ hasError: false, message: "" }); this.props.onReset?.(); }}>Back to Overview</button>
+        </div>
+      </section>
+    );
+  }
+}
+
+function normalizeText(value, fallback = "") {
+  return value == null ? fallback : String(value);
+}
+
 function useClock(intervalMs = 1000) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -58,44 +90,17 @@ function useClock(intervalMs = 1000) {
   return now;
 }
 
-class AppErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false, message: "" };
-  }
-
-  static getDerivedStateFromError(error) {
-    return { hasError: true, message: error?.message || "Unexpected application error." };
-  }
-
-  componentDidCatch(error, info) {
-    console.error("Rental app render error:", error, info);
-  }
-
-  handleReload = () => {
-    window.location.reload();
-  };
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="loading" style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 24, textAlign: "center" }}>
-          <div>
-            <strong style={{ display: "block", marginBottom: 10 }}>Something went wrong</strong>
-            <p style={{ margin: "0 0 16px", opacity: 0.75 }}>{this.state.message}</p>
-            <button type="button" className="primary" onClick={this.handleReload}>Reload app</button>
-          </div>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
-
-function App() {
+export default function App() {
   const [cars, setCars] = useState([]);
   const [rentals, setRentals] = useState([]);
-  const [tab, setTab] = useState("dashboard");
+  const validTabs = ["dashboard", "cars", "rentals", "calendar", "customers", "availability"];
+  // These are app views, not browser routes. Keeping navigation in React state
+  // prevents calendar controls and page switches from changing the URL/hash.
+  const [tab, setTabState] = useState("dashboard");
+
+  function setTab(nextTab) {
+    setTabState(validTabs.includes(nextTab) ? nextTab : "dashboard");
+  }
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState("");
@@ -185,52 +190,17 @@ function App() {
   }
 
   async function returnRental(id) {
-    if (!id) return;
-
-    const rental = rentals.find((r) => r?.id === id);
-    if (!rental) {
-      notify("Rental not found. Please refresh the page.");
-      return;
-    }
-
-    if (rental.returned) {
-      notify("This rental has already been returned.");
-      return;
-    }
-
-    const car = cars.find((c) => c?.id === rental.carId);
-    const returnedAt = new Date().toISOString();
-    const updatedRental = { ...rental, returned: true, returnedAt };
-
+    const rental = rentals.find((r) => r.id === id);
+    if (!rental) return;
+    const car = cars.find((c) => c.id === rental.carId);
+    const updatedRental = { ...rental, returned: true, returnedAt: new Date().toISOString() };
     try {
-      // Save the rental first. The local UI is updated only after Firebase succeeds.
       await persist("rentals", id, updatedRental);
-
-      if (car) {
-        try {
-          await persist("cars", car.id, { ...car, status: "available" });
-        } catch (carError) {
-          // Keep the rental update, but tell the user the vehicle status still needs attention.
-          console.error("Could not update returned car status:", carError);
-          notify("Rental returned, but the car status could not be updated.");
-        }
-      }
-
-      setRentals((prev) =>
-        prev.map((r) => r?.id === id ? updatedRental : r)
-      );
-
-      if (car) {
-        setCars((prev) =>
-          prev.map((c) => c?.id === car.id ? { ...c, status: "available" } : c)
-        );
-      }
-
+      if (car) await persist("cars", car.id, { ...car, status: "available" });
+      setRentals((prev) => prev.map((r) => r.id === id ? updatedRental : r));
+      setCars((prev) => prev.map((c) => c.id === rental.carId ? { ...c, status: "available" } : c));
       notify("Car marked as returned.");
-    } catch (error) {
-      console.error("Return rental failed:", error);
-      // persist() already displays the Firebase error toast.
-    }
+    } catch {}
   }
 
   const stats = useMemo(() => {
@@ -253,7 +223,7 @@ function App() {
         <div className="brand"><span className="brand-mark">◍</span> Rental Cars Manager</div>
         <nav>
           {[
-            ["dashboard", "Overview"], ["cars", "Cars"], ["rentals", "Rentals"], ["availability", "Availability"]
+            ["dashboard", "Overview"], ["cars", "Cars"], ["rentals", "Rentals"], ["calendar", "Calendar"], ["customers", "Customers"], ["availability", "Availability"]
           ].map(([id, label]) => (
             <motion.button
               type="button"
@@ -299,10 +269,14 @@ function App() {
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.22, ease: "easeOut" }}
             >
-              {tab === "dashboard" && <Dashboard stats={stats} cars={cars} onReturn={returnRental} onContract={setContractRental} />}
-              {tab === "cars" && <Fleet cars={cars} rentals={rentals} onAdd={addCar} onDelete={deleteCar} />}
-              {tab === "rentals" && <Rentals cars={cars} rentals={rentals} onAdd={addRental} onReturn={returnRental} onContract={setContractRental} />}
-              {tab === "availability" && <Availability cars={cars} rentals={rentals} />}
+              <PageErrorBoundary pageKey={tab} onReset={() => setTab("dashboard")}>
+                {tab === "dashboard" && <Dashboard stats={stats} cars={cars} onReturn={returnRental} onContract={setContractRental} />}
+                {tab === "cars" && <Fleet cars={cars} rentals={rentals} onAdd={addCar} onDelete={deleteCar} />}
+                {tab === "rentals" && <Rentals cars={cars} rentals={rentals} onAdd={addRental} onReturn={returnRental} onContract={setContractRental} />}
+                {tab === "calendar" && <RentalCalendar cars={cars} rentals={rentals} onContract={setContractRental} />}
+                {tab === "customers" && <CustomerHistory cars={cars} rentals={rentals} onReturn={returnRental} onContract={setContractRental} onAdd={addRental} />}
+                {tab === "availability" && <Availability cars={cars} rentals={rentals} />}
+              </PageErrorBoundary>
             </motion.div>
           </AnimatePresence>
         </div>
@@ -354,8 +328,7 @@ function Stat({ label, value, cls = "" }) {
 // Animated progress bar + live countdown timer for an active rental.
 function CountdownBar({ rental }) {
   const now = useClock(1000);
-  const startDate = safeDate(rental?.startDate);
-  const start = startDate ? startDate.getTime() : Date.now();
+  const start = new Date(rental.startDate).getTime();
   const end = endDate(rental).getTime();
   const totalMs = Math.max(1, end - start);
   const remainingMs = end - now;
@@ -407,8 +380,8 @@ function Dashboard({ stats, cars, onReturn, onContract }) {
                   <div><b>{car ? `${car.name} · ${car.model}` : "Unknown car"}</b><small>{r.customerName} · CIN {r.cin}</small></div>
                   <CountdownBar rental={r} />
                   <div className="list-btn">
-                  <motion.button type="button" className="ghost" onClick={() => onContract(r)} whileTap={{ scale: 0.95 }}>Contract</motion.button>
-                  <motion.button type="button" className="ghost" onClick={() => onReturn(r.id)} whileTap={{ scale: 0.95 }}>Return</motion.button>
+                  <motion.button className="ghost" onClick={() => onContract(r)} whileTap={{ scale: 0.95 }}>Contract</motion.button>
+                  <motion.button className="ghost" onClick={() => onReturn(r.id)} whileTap={{ scale: 0.95 }}>Return</motion.button>
                   </div>
                 </motion.div>;
               })}
@@ -467,7 +440,7 @@ function Fleet({ cars, rentals, onAdd, onDelete }) {
               <div className="car-meta">{c.plate || "No plate"} {c.color ? `· ${c.color}` : ""}</div>
               <div className="price">{money(c.pricePerDay)}<small>/day</small></div>
               {active && <div className="rented-note">With {active.customerName} · {daysLeft(active)}d left</div>}
-              <motion.button type="button" className="ghost" onClick={() => onDelete(c.id)} whileTap={{ scale: 0.95 }}>Remove</motion.button>
+              <motion.button className="ghost" onClick={() => onDelete(c.id)} whileTap={{ scale: 0.95 }}>Remove</motion.button>
             </motion.article>;
           })}
         </AnimatePresence>
@@ -548,8 +521,8 @@ function Rentals({ cars, rentals, onAdd, onReturn, onContract }) {
               </div>
               <CountdownBar rental={r} />
               <div className="list-btn">
-              <motion.button type="button" className="ghost" onClick={() => onContract(r)} whileTap={{ scale: 0.95 }}>Contract</motion.button>
-              <motion.button type="button" className="ghost" onClick={() => onReturn(r.id)} whileTap={{ scale: 0.95 }}>Return</motion.button>
+              <motion.button className="ghost" onClick={() => onContract(r)} whileTap={{ scale: 0.95 }}>Contract</motion.button>
+              <motion.button className="ghost" onClick={() => onReturn(r.id)} whileTap={{ scale: 0.95 }}>Return</motion.button>
               </div>
             </motion.div>;
           })}
@@ -560,12 +533,355 @@ function Rentals({ cars, rentals, onAdd, onReturn, onContract }) {
           <div className="rental-main"><b>{r.customerName}</b><small>{cars.find((c) => c.id === r.carId)?.name || "Unknown car"} · {money(r.totalPrice || r.days * r.pricePerDay)}</small><small>Returned {dateTimeText(r.returnedAt)}</small></div>
           <div className="list-btn">
           <span className="pill returned">Returned</span>
-          <motion.button type="button" className="ghost" onClick={() => onContract(r)} whileTap={{ scale: 0.95 }}>Contract</motion.button>
+          <motion.button className="ghost" onClick={() => onContract(r)} whileTap={{ scale: 0.95 }}>Contract</motion.button>
           </div>
         </motion.div>)}
       </motion.div></>}
     </section>
   </div>;
+}
+
+
+function localDateKey(value) {
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
+function monthLabel(date) {
+  return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+}
+
+function RentalCalendar({ cars, rentals, onContract }) {
+  const [cursor, setCursor] = useState(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1);
+  });
+  const [selectedDate, setSelectedDate] = useState(null);
+
+  const year = cursor.getFullYear();
+  const month = cursor.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const startOffset = (firstDay.getDay() + 6) % 7;
+  const totalCells = Math.ceil((startOffset + daysInMonth) / 7) * 7;
+
+  // Every cell always gets a real date (JS Date rolls day numbers below 1 or
+  // above daysInMonth into the neighbouring month automatically), so leading
+  // and trailing cells show that month's days instead of staying blank.
+  const cells = useMemo(() => Array.from({ length: totalCells }, (_, i) => {
+    const dayNumber = i - startOffset + 1;
+    return { date: new Date(year, month, dayNumber), inMonth: dayNumber >= 1 && dayNumber <= daysInMonth };
+  }), [year, month, startOffset, daysInMonth, totalCells]);
+
+  // Bounded, per-visible-day lookup instead of a while-loop that walked one
+  // day at a time from a rental's start to its end. A single bad or mistyped
+  // record (e.g. an enormous "days" value) made that loop run for years'
+  // worth of iterations and could freeze/blank the page while browsing
+  // months. This checks at most 42 cells regardless of how long a rental is.
+  const byDay = useMemo(() => {
+    const map = {};
+    cells.forEach(({ date }) => {
+      const key = localDateKey(date);
+      map[key] = rentals.filter((r) => {
+        try {
+          const start = new Date(r.startDate);
+          const end = endDate(r);
+          if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return false;
+          const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+          const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+          const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+          return dayStart >= startDay && dayStart < endDay;
+        } catch {
+          return false;
+        }
+      });
+    });
+    return map;
+  }, [cells, rentals]);
+
+  const monthRentals = rentals.filter((r) => {
+    try {
+      const start = new Date(r.startDate);
+      const end = endDate(r);
+      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return false;
+      return start < new Date(year, month + 1, 1) && end > new Date(year, month, 1);
+    } catch {
+      return false;
+    }
+  });
+
+  function moveMonth(amount) {
+    setCursor(new Date(year, month + amount, 1));
+  }
+
+  return <div className="calendar-page">
+    <section className="panel">
+      <div className="calendar-head">
+        <div>
+          <div className="eyebrow">RENTAL SCHEDULE</div>
+          <h2>{monthLabel(cursor)}</h2>
+          <span className="calendar-subtitle">{monthRentals.length} rental{monthRentals.length === 1 ? "" : "s"} in this month</span>
+        </div>
+        <div className="calendar-controls">
+          <motion.button type="button" className="ghost" onClick={() => setCursor(new Date(new Date().getFullYear(), new Date().getMonth(), 1))} whileTap={{ scale: 0.95 }}>Today</motion.button>
+          <motion.button type="button" className="ghost calendar-arrow" onClick={() => moveMonth(-1)} whileTap={{ scale: 0.92 }} aria-label="Previous month">‹</motion.button>
+          <motion.button type="button" className="ghost calendar-arrow" onClick={() => moveMonth(1)} whileTap={{ scale: 0.92 }} aria-label="Next month">›</motion.button>
+        </div>
+      </div>
+
+      <div className="calendar-weekdays">
+        {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((day) => <span key={day}>{day}</span>)}
+      </div>
+      <div className="calendar-grid">
+        {cells.map(({ date, inMonth }) => {
+          const key = localDateKey(date);
+          const dayRentals = byDay[key] || [];
+          const today = key === localDateKey(new Date());
+          const hasActive = dayRentals.some((r) => !r.returned);
+          return <motion.button
+            type="button"
+            key={key}
+            className={`calendar-day ${!inMonth ? 'outside-month' : ''} ${today ? 'today' : ''} ${dayRentals.length ? 'has-rentals' : ''}`}
+            onClick={() => setSelectedDate(date)}
+            whileTap={{ scale: 0.97 }}
+          >
+            <div className="calendar-day-top">
+              <span className="calendar-day-number">{date.getDate()}</span>
+              {dayRentals.length > 0 && <span className={`calendar-day-badge ${hasActive ? 'active' : 'returned'}`}>{dayRentals.length}</span>}
+            </div>
+            {dayRentals.length > 0 && <div className="calendar-day-dots">
+              {dayRentals.slice(0, 5).map((r) => <span key={r.id} className={`day-dot ${r.returned ? 'returned' : 'active'}`} />)}
+              {dayRentals.length > 5 && <span className="day-dot-more">+{dayRentals.length - 5}</span>}
+            </div>}
+          </motion.button>;
+        })}
+      </div>
+    </section>
+
+    <AnimatePresence>
+      {selectedDate && <DayDetailsModal
+        date={selectedDate}
+        rentals={byDay[localDateKey(selectedDate)] || []}
+        cars={cars}
+        onContract={onContract}
+        onClose={() => setSelectedDate(null)}
+      />}
+    </AnimatePresence>
+
+    <section className="panel">
+      <div className="panel-head"><h2>Month rentals</h2><span>{monthRentals.length}</span></div>
+      {monthRentals.length === 0 ? <Empty text="No rentals in this month." /> : <motion.div className="calendar-rental-list" variants={formStagger} initial="hidden" animate="show">
+        {[...monthRentals].sort((a, b) => new Date(a.startDate) - new Date(b.startDate)).map((r) => {
+          const car = cars.find((c) => c.id === r.carId);
+          return <motion.div className="calendar-rental-row" key={r.id} variants={fieldVariants}>
+            <div className={`calendar-status ${r.returned ? 'returned' : 'active'}`} />
+            <div className="rental-main"><b>{r.customerName}</b><small>{car ? `${car.name} · ${car.model}` : 'Unknown car'}</small><small>{dateText(r.startDate)} → {dateText(endDate(r))}</small></div>
+            <span className={`pill ${r.returned ? 'returned' : ''}`}>{r.returned ? 'Returned' : 'Active'}</span>
+            <motion.button type="button" className="ghost" onClick={() => onContract(r)} whileTap={{ scale: 0.95 }}>Contract</motion.button>
+          </motion.div>;
+        })}
+      </motion.div>}
+    </section>
+  </div>;
+}
+
+function DayDetailsModal({ date, rentals, cars, onContract, onClose }) {
+  const sorted = [...rentals].sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+  return <motion.div
+    className="modal-backdrop"
+    onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    exit={{ opacity: 0 }}
+    transition={{ duration: 0.15 }}
+  >
+    <motion.div
+      className="day-modal"
+      initial={{ opacity: 0, y: 16, scale: 0.97 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: 12, scale: 0.97 }}
+      transition={{ duration: 0.2, ease: "easeOut" }}
+    >
+      <div className="day-modal-head">
+        <div>
+          <div className="eyebrow">{date.toLocaleDateString("en-US", { weekday: "long" })}</div>
+          <h2>{date.toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" })}</h2>
+        </div>
+        <motion.button type="button" className="ghost" onClick={onClose} whileTap={{ scale: 0.95 }}>Close</motion.button>
+      </div>
+      {sorted.length === 0
+        ? <Empty text="No rentals on this day." />
+        : <div className="day-modal-list">
+          {sorted.map((r) => {
+            const car = cars.find((c) => c.id === r.carId);
+            return <div className="calendar-rental-row" key={r.id}>
+              <div className={`calendar-status ${r.returned ? 'returned' : 'active'}`} />
+              <div className="rental-main">
+                <b>{r.customerName}</b>
+                <small>{car ? `${car.name} · ${car.model}` : 'Unknown car'}</small>
+                <small>{dateText(r.startDate)} → {dateText(endDate(r))}</small>
+              </div>
+              <span className={`pill ${r.returned ? 'returned' : ''}`}>{r.returned ? 'Returned' : 'Active'}</span>
+              <motion.button type="button" className="ghost" onClick={() => onContract(r)} whileTap={{ scale: 0.95 }}>Contract</motion.button>
+            </div>;
+          })}
+        </div>}
+    </motion.div>
+  </motion.div>;
+}
+
+function CustomerHistory({ cars, rentals, onReturn, onContract, onAdd }) {
+  const [search, setSearch] = useState("");
+  const [selectedKey, setSelectedKey] = useState(null);
+  const [quickRentalCustomer, setQuickRentalCustomer] = useState(null);
+
+  const customers = useMemo(() => {
+    const map = new Map();
+    rentals.forEach((r) => {
+      const key = normalizeText(r.cin || r.customerName || r.id).trim().toLowerCase();
+      const current = map.get(key) || { key, name: normalizeText(r.customerName, 'Unknown customer'), cin: normalizeText(r.cin, '—'), phone: normalizeText(r.phone, '—'), rentals: [] };
+      current.name = normalizeText(r.customerName, current.name);
+      current.cin = normalizeText(r.cin, current.cin);
+      current.phone = normalizeText(r.phone, current.phone);
+      current.rentals.push(r);
+      map.set(key, current);
+    });
+    return [...map.values()].sort((a, b) => normalizeText(a.name).localeCompare(normalizeText(b.name)));
+  }, [rentals]);
+
+  const filtered = customers.filter((customer) => `${normalizeText(customer.name)} ${normalizeText(customer.cin)} ${normalizeText(customer.phone)}`.toLowerCase().includes(normalizeText(search).toLowerCase().trim()));
+  const selected = customers.find((customer) => customer.key === selectedKey);
+
+  return <div className="customer-page">
+    <section className="panel">
+      <div className="customer-head">
+        <div><div className="eyebrow">CUSTOMER DATABASE</div><h2>Customer history</h2><span className="calendar-subtitle">{customers.length} customer{customers.length === 1 ? '' : 's'} from your rental records</span></div>
+        <div className="customer-search"><span>⌕</span><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, CIN or phone" /></div>
+      </div>
+      {filtered.length === 0 ? <Empty text={search ? "No customers match your search." : "No customer history yet."} /> : <motion.div className="customer-cards" variants={formStagger} initial="hidden" animate="show">
+        {filtered.map((customer) => {
+          const active = customer.rentals.filter((r) => !r.returned).length;
+          const totalSpent = customer.rentals.reduce((sum, r) => sum + Number(r.totalPrice || Number(r.days || 0) * Number(r.pricePerDay || 0)), 0);
+          const isSelected = selectedKey === customer.key;
+          return <motion.article className={`customer-card ${isSelected ? 'selected' : ''}`} key={customer.key} variants={fieldVariants} layout>
+            <button type="button" className="customer-card-main" onClick={() => setSelectedKey(isSelected ? null : customer.key)}>
+              <div className="customer-avatar">{(customer.name || '?').charAt(0).toUpperCase()}</div>
+              <div className="customer-card-info"><b>{customer.name}</b><small>CIN {customer.cin}</small><small>{customer.phone}</small></div>
+              <span className="customer-chevron">{isSelected ? '⌃' : '⌄'}</span>
+            </button>
+            <div className="customer-stats"><span><b>{customer.rentals.length}</b> rentals</span><span><b>{active}</b> active</span><span><b>{money(totalSpent)}</b> spent</span></div>
+            <div className="customer-card-footer">
+              <motion.button type="button" className="primary" onClick={() => setQuickRentalCustomer(customer)} whileTap={{ scale: 0.97 }}>+ New rental for {customer.name.split(' ')[0]}</motion.button>
+            </div>
+            <AnimatePresence initial={false}>
+              {isSelected && <motion.div className="customer-history" initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }}>
+                {[...customer.rentals].sort((a, b) => new Date(b.startDate) - new Date(a.startDate)).map((r) => {
+                  const car = cars.find((c) => c.id === r.carId);
+                  return <div className="customer-rental" key={r.id}>
+                    <div><b>{car ? `${car.name} · ${car.model}` : 'Unknown car'}</b><small>{dateText(r.startDate)} → {dateText(endDate(r))}</small><small>{money(r.totalPrice || r.days * r.pricePerDay)}</small></div>
+                    <div className="customer-rental-actions"><span className={`pill ${r.returned ? 'returned' : ''}`}>{r.returned ? 'Returned' : 'Active'}</span>{!r.returned && <motion.button type="button" className="ghost" onClick={() => onReturn(r.id)} whileTap={{ scale: 0.95 }}>Return</motion.button>}<motion.button type="button" className="ghost" onClick={() => onContract(r)} whileTap={{ scale: 0.95 }}>Contract</motion.button></div>
+                  </div>;
+                })}
+              </motion.div>}
+            </AnimatePresence>
+          </motion.article>;
+        })}
+      </motion.div>}
+    </section>
+
+    <AnimatePresence>
+      {quickRentalCustomer && <QuickRentalModal
+        customer={quickRentalCustomer}
+        cars={cars}
+        onAdd={onAdd}
+        onClose={() => setQuickRentalCustomer(null)}
+      />}
+    </AnimatePresence>
+  </div>;
+}
+
+function QuickRentalModal({ customer, cars, onAdd, onClose }) {
+  const available = cars.filter((c) => c.status === "available");
+  const [carId, setCarId] = useState("");
+  const [days, setDays] = useState(1);
+  const [submitting, setSubmitting] = useState(false);
+  const car = cars.find((c) => c.id === carId);
+  const total = car ? Number(car.pricePerDay) * Number(days || 0) : 0;
+
+  async function submit(e) {
+    e.preventDefault();
+    if (!car || Number(days) <= 0 || submitting) return;
+    setSubmitting(true);
+    try {
+      await onAdd({
+        carId: car.id,
+        customerName: customer.name === "Unknown customer" ? "" : customer.name,
+        cin: customer.cin === "—" ? "" : customer.cin,
+        phone: customer.phone === "—" ? "" : customer.phone,
+        days: Number(days),
+        pricePerDay: Number(car.pricePerDay),
+        totalPrice: total,
+        startDate: new Date().toISOString(),
+      });
+      onClose();
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return <motion.div
+    className="modal-backdrop"
+    onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    exit={{ opacity: 0 }}
+    transition={{ duration: 0.15 }}
+  >
+    <motion.div
+      className="day-modal"
+      initial={{ opacity: 0, y: 16, scale: 0.97 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: 12, scale: 0.97 }}
+      transition={{ duration: 0.2, ease: "easeOut" }}
+    >
+      <div className="day-modal-head">
+        <div><div className="eyebrow">RETURNING CUSTOMER</div><h2>New rental</h2></div>
+        <motion.button type="button" className="ghost" onClick={onClose} whileTap={{ scale: 0.95 }}>Close</motion.button>
+      </div>
+
+      <div className="quick-rental-customer">
+        <div className="customer-avatar">{(customer.name || '?').charAt(0).toUpperCase()}</div>
+        <div className="customer-card-info">
+          <b>{customer.name}</b>
+          <small>CIN {customer.cin}</small>
+          <small>{customer.phone}</small>
+        </div>
+      </div>
+
+      <motion.form className="form" onSubmit={submit} variants={formStagger} initial="hidden" animate="show">
+        <motion.div variants={fieldVariants}>
+          <CarSelect value={carId} cars={available} onChange={setCarId} />
+        </motion.div>
+        <Field label="Rental days" type="number" value={days} onChange={setDays} />
+        <motion.div className="total" layout variants={fieldVariants} transition={{ duration: 0.3, ease: "easeOut" }}>
+          <span>Total price</span>
+          <AnimatePresence mode="popLayout" initial={false}>
+            <motion.strong
+              key={total}
+              initial={{ y: -14, opacity: 0, scale: 0.92 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 14, opacity: 0, scale: 0.92 }}
+              transition={{ duration: 0.28, ease: "easeOut" }}
+            >{money(total)}</motion.strong>
+          </AnimatePresence>
+        </motion.div>
+        <motion.button type="submit" className="primary" disabled={!car || submitting} whileTap={{ scale: 0.97 }} variants={fieldVariants}>
+          {submitting ? "Starting…" : "Start rental"}
+        </motion.button>
+      </motion.form>
+    </motion.div>
+  </motion.div>;
 }
 
 function Availability({ cars, rentals }) {
@@ -668,138 +984,6 @@ function CarSelect({ value, cars, onChange }) {
   );
 }
 
-function downloadContractPDF(rental, car) {
-  try {
-    const doc = new jsPDF({ unit: "mm", format: "a4" });
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const margin = 16;
-    const contentWidth = pageWidth - margin * 2;
-    let y = 18;
-
-    const contractNo = String(rental?.id || "").slice(-8).toUpperCase() || "N/A";
-    const customer = rental?.customerName || "—";
-    const cin = rental?.cin || "—";
-    const phone = rental?.phone || "—";
-    const vehicle = car ? `${car.name || ""} ${car.model || ""}`.trim() : "—";
-    const plate = car?.plate || "—";
-    const vehicleColor = car?.color || "—";
-    const start = dateTimeText(rental?.startDate);
-    const returnDate = dateTimeText(endDate(rental));
-    const days = Number(rental?.days) || 0;
-    const dailyRate = money(rental?.pricePerDay);
-    const total = money(rental?.totalPrice || days * Number(rental?.pricePerDay || 0));
-    const status = rental?.returned ? "Completed" : "Active";
-
-    const ensureSpace = (needed = 10) => {
-      if (y + needed > pageHeight - 18) {
-        doc.addPage();
-        y = 18;
-      }
-    };
-
-    const text = (value, x, yy, size = 10, style = "normal") => {
-      doc.setFont("helvetica", style);
-      doc.setFontSize(size);
-      doc.text(String(value ?? "—"), x, yy);
-    };
-
-    const section = (title) => {
-      ensureSpace(14);
-      doc.setFillColor(242, 244, 247);
-      doc.roundedRect(margin, y - 5, contentWidth, 9, 2, 2, "F");
-      text(title, margin + 4, y + 1, 10, "bold");
-      y += 11;
-    };
-
-    const row = (label, value, x = margin, width = contentWidth) => {
-      ensureSpace(8);
-      text(label, x, y, 8, "normal");
-      const wrapped = doc.splitTextToSize(String(value ?? "—"), width - 42);
-      text(wrapped, x + 42, y, 9, "bold");
-      y += Math.max(6, wrapped.length * 4.5);
-    };
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(20);
-    text("RENTAL CARS", margin, y, 20, "bold");
-    text(`Contract #${contractNo}`, pageWidth - margin, y, 10, "bold");
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    text("Vehicle Rental Agreement", margin, y + 6, 9, "normal");
-    y += 18;
-
-    doc.setDrawColor(210, 214, 220);
-    doc.line(margin, y, pageWidth - margin, y);
-    y += 12;
-
-    text("CAR RENTAL CONTRACT", margin, y, 16, "bold");
-    text(`Agreement date: ${dateText(rental?.startDate)}`, margin, y + 7, 9, "normal");
-    y += 17;
-
-    section("CUSTOMER");
-    row("Full name", customer);
-    row("CIN / ID", cin);
-    row("Phone", phone);
-
-    section("VEHICLE");
-    row("Vehicle", vehicle);
-    row("Plate", plate);
-    row("Color", vehicleColor);
-
-    section("RENTAL PERIOD");
-    row("Start", start);
-    row("Return", returnDate);
-    row("Duration", `${days} day(s)`);
-
-    section("PAYMENT");
-    row("Daily rate", dailyRate);
-    row("Total", total);
-    row("Status", status);
-
-    section("TERMS & CONDITIONS");
-    const terms = [
-      "The customer confirms receipt of the vehicle in good rental condition unless noted separately.",
-      "The vehicle must be returned on the agreed date and time.",
-      "The customer is responsible for fines, damage caused by misuse, and unauthorized use.",
-      "Any extension must be agreed with the rental agency before the original return time.",
-    ];
-    terms.forEach((term, index) => {
-      ensureSpace(14);
-      const wrapped = doc.splitTextToSize(`${index + 1}. ${term}`, contentWidth - 4);
-      text(wrapped, margin + 2, y, 9, "normal");
-      y += wrapped.length * 4.5 + 3;
-    });
-
-    section("VEHICLE CONDITION / NOTES");
-    for (let i = 0; i < 3; i += 1) {
-      ensureSpace(10);
-      doc.setDrawColor(190, 194, 200);
-      doc.line(margin, y, pageWidth - margin, y);
-      y += 10;
-    }
-
-    ensureSpace(28);
-    const sigWidth = (contentWidth - 20) / 2;
-    doc.line(margin, y, margin + sigWidth, y);
-    doc.line(margin + sigWidth + 20, y, pageWidth - margin, y);
-    text("Customer signature", margin, y + 6, 8, "normal");
-    text("Agency representative", margin + sigWidth + 20, y + 6, 8, "normal");
-    y += 17;
-
-    ensureSpace(10);
-    doc.setDrawColor(220, 223, 228);
-    doc.line(margin, pageHeight - 14, pageWidth - margin, pageHeight - 14);
-    text(`Generated from Rental Cars Manager · ${dateTimeText(new Date())}`, margin, pageHeight - 8, 7, "normal");
-
-    const filename = `rental-contract-${contractNo}.pdf`;
-    doc.save(filename);
-  } catch (error) {
-    console.error("Contract PDF generation failed:", error);
-    window.alert("Could not generate the PDF. Please try again or use Print contract.");
-  }
-}
-
 function ContractModal({ rental, car, onClose }) {
   return <motion.div
     className="modal-backdrop"
@@ -817,9 +1001,8 @@ function ContractModal({ rental, car, onClose }) {
       transition={{ duration: 0.25, ease: "easeOut" }}
     >
       <div className="modal-actions">
-        <motion.button type="button" className="ghost" onClick={onClose} whileTap={{ scale: 0.95 }}>Close</motion.button>
-        <motion.button type="button" className="primary" onClick={() => downloadContractPDF(rental, car)} whileTap={{ scale: 0.95 }}>Download PDF</motion.button>
-        <motion.button type="button" className="ghost" onClick={() => window.print()} whileTap={{ scale: 0.95 }}>Print contract</motion.button>
+        <motion.button className="ghost" onClick={onClose} whileTap={{ scale: 0.95 }}>Close</motion.button>
+        <motion.button className="primary" onClick={() => window.print()} whileTap={{ scale: 0.95 }}>Print contract</motion.button>
       </div>
       <div className="contract" id="print-contract">
         <header className="contract-header">
@@ -897,11 +1080,3 @@ const formStagger = {
   hidden: {},
   show: { transition: { staggerChildren: 0.05, delayChildren: 0.04 } },
 };
-
-export default function AppWithErrorBoundary() {
-  return (
-    <AppErrorBoundary>
-      <App />
-    </AppErrorBoundary>
-  );
-}

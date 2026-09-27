@@ -1013,3 +1013,105 @@ select {
 @media(max-width:620px) {
     .custom-select-menu { max-height: 280px; overflow-y: auto; }
 }
+
+/* Rental calendar */
+.calendar-page,
+.customer-page { display: grid; gap: 16px; }
+.calendar-head,
+.customer-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+.calendar-head h2,
+.customer-head h2 { margin: 3px 0 2px; }
+.calendar-subtitle { display: block; color: var(--text-muted); font-size: 11px; }
+.calendar-controls { display: flex; gap: 7px; align-items: center; }
+.calendar-arrow { min-width: 42px; font-size: 20px; line-height: 1; padding-inline: 10px; }
+.calendar-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 6px; }
+.calendar-weekdays span { color: var(--text-muted); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; padding: 5px 7px; }
+.calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.calendar-day {
+  min-height: 92px; border: 1px solid var(--border); background: var(--surface-soft); border-radius: 12px;
+  padding: 8px; overflow: hidden; display: flex; flex-direction: column; gap: 8px;
+  font: inherit; color: inherit; text-align: left; cursor: pointer; width: 100%;
+  transition: border-color .15s ease, background .15s ease, transform .15s ease;
+}
+.calendar-day:hover, .calendar-day:focus-visible { border-color: var(--amber); background: var(--surface); outline: none; }
+.calendar-day.has-rentals { background: var(--surface); }
+.calendar-day.outside-month { opacity: .4; }
+.calendar-day.outside-month .calendar-day-number { opacity: .75; }
+.calendar-day.today { border-color: var(--amber); box-shadow: inset 0 0 0 1px var(--amber); }
+.calendar-day-top { display: flex; align-items: center; justify-content: space-between; }
+.calendar-day-number { font-size: 11px; font-weight: 800; }
+.today .calendar-day-number { color: var(--amber); }
+.calendar-day-badge {
+  font-size: 9px; font-weight: 800; padding: 1px 6px; border-radius: 99px; line-height: 1.6;
+  background: var(--amber-soft); color: var(--amber);
+}
+.calendar-day-badge.returned { background: var(--surface-soft); color: var(--text-muted); }
+.calendar-day-dots { display: flex; flex-wrap: wrap; gap: 4px; margin-top: auto; }
+.day-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--amber); flex: none; }
+.day-dot.returned { background: var(--text-muted); }
+.day-dot-more { font-size: 8px; color: var(--text-muted); font-weight: 700; }
+
+.day-modal { width: min(480px, 100%); background: var(--surface); border-radius: 16px; padding: 20px; box-shadow: var(--shadow-lg); }
+.day-modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.day-modal-head h2 { margin: 2px 0 0; }
+.day-modal-list { display: grid; gap: 8px; max-height: 60vh; overflow-y: auto; }
+.calendar-rental-list { display: grid; gap: 7px; }
+.calendar-rental-row { display: grid; grid-template-columns: 7px minmax(0,1fr) auto auto; gap: 10px; align-items: center; padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-soft); }
+.calendar-status { width: 7px; height: 36px; border-radius: 99px; background: var(--amber); }
+.calendar-status.returned { background: var(--text-muted); }
+
+/* Customer history */
+.customer-search { min-width: 260px; display: flex; align-items: center; gap: 8px; padding: 9px 11px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-soft); }
+.customer-search span { color: var(--text-muted); font-size: 17px; }
+.customer-search input { width: 100%; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; font-size: 12px; }
+.customer-search input::placeholder { color: var(--text-muted); }
+.customer-cards { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
+.customer-card { border: 1px solid var(--border); border-radius: 12px; background: var(--surface-soft); overflow: hidden; transition: border-color .18s ease, box-shadow .18s ease; }
+.customer-card.selected { border-color: var(--amber); box-shadow: 0 10px 30px rgba(217,119,6,.08); }
+.customer-card-main { width: 100%; border: 0; background: transparent; color: var(--text); display: flex; align-items: center; gap: 10px; padding: 13px; text-align: left; cursor: pointer; }
+.customer-avatar { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; flex: 0 0 auto; background: var(--amber-soft); color: var(--amber); font-weight: 900; }
+.customer-card-info { min-width: 0; flex: 1; }
+.customer-card-info b, .customer-card-info small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.customer-card-info b { font-size: 13px; }
+.customer-card-info small { color: var(--text-muted); font-size: 10px; margin-top: 2px; }
+.customer-chevron { color: var(--text-muted); font-size: 17px; }
+.customer-stats { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--border); padding: 9px 13px; gap: 8px; }
+.customer-stats span { color: var(--text-muted); font-size: 9px; }
+.customer-stats b { display: block; color: var(--text); font-size: 11px; margin-bottom: 2px; }
+.customer-history { overflow: hidden; border-top: 1px solid var(--border); padding: 7px 10px 10px; }
+.customer-rental { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 3px; border-bottom: 1px solid var(--border); }
+.customer-rental:last-child { border-bottom: 0; }
+.customer-rental > div:first-child { min-width: 0; }
+.customer-rental b, .customer-rental small { display: block; }
+.customer-rental b { font-size: 11px; }
+.customer-rental small { color: var(--text-muted); font-size: 9px; margin-top: 2px; }
+.customer-rental-actions { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
+.customer-card-footer { padding: 0 13px 13px; }
+.customer-card-footer .primary { width: 100%; padding: 9px 12px; font-size: 12px; }
+.quick-rental-customer { display: flex; align-items: center; gap: 10px; background: var(--surface-soft); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; margin-bottom: 16px; }
+.quick-rental-customer .customer-card-info small { white-space: normal; }
+
+@media(max-width:900px) {
+  .customer-cards { grid-template-columns: 1fr; }
+  .calendar-day { min-height: 92px; }
+}
+
+@media(max-width:620px) {
+  .calendar-head, .customer-head { align-items: stretch; flex-direction: column; }
+  .calendar-controls { justify-content: flex-end; }
+  .customer-search { min-width: 0; width: 100%; }
+  .calendar-weekdays { gap: 3px; }
+  .calendar-weekdays span { font-size: 8px; padding: 4px 2px; text-align: center; }
+  .calendar-grid { gap: 3px; }
+  .calendar-day { min-height: 72px; padding: 4px; border-radius: 7px; }
+  .calendar-day-number { font-size: 10px; margin-bottom: 4px; }
+  .calendar-event { padding: 3px 4px; border-left-width: 2px; }
+  .calendar-event span { font-size: 8px; }
+  .calendar-event small { display: none; }
+  .calendar-more { font-size: 8px; }
+  .calendar-rental-row { grid-template-columns: 5px minmax(0,1fr) auto; }
+  .calendar-rental-row .ghost { grid-column: 2 / -1; justify-self: end; }
+  .customer-rental { align-items: flex-start; flex-direction: column; }
+  .customer-rental-actions { width: 100%; justify-content: flex-start; }
+  .customer-stats { grid-template-columns: repeat(3, minmax(0,1fr)); }
+}
