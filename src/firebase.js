@@ -1,5 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getDatabase, ref, get, set, remove } from "firebase/database";
+import { getAuth, signInAnonymously } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: "AIzaSyD_mEgfFs7KBY20rK-rWhSAlzYl3DwPgdk",
@@ -14,8 +15,14 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 
 export const db = getDatabase(app);
+export const auth = getAuth(app);
 
+// Signs in anonymously (required by the database rules: auth != null).
+// Reuses the existing session if the user is already signed in.
 export async function connectFirebase() {
+  if (!auth.currentUser) {
+    await signInAnonymously(auth);
+  }
   return db;
 }
 
