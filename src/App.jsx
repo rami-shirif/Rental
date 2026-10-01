@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import NumberFlow from "@number-flow/react";
 import {
   connectFirebase,
   readCollection,
   writeItem,
-  notifyTelegram,
   deleteItem,
 } from "./firebase";
+import * as firebaseApi from "./firebase";
 import "./styles.css";
 
 const uid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -189,7 +190,7 @@ export default function App() {
       ]);
       setRentals((prev) => [...prev, rental]);
       setCars((prev) => prev.map((c) => c.id === car.id ? { ...c, status: "rented" } : c));
-      notifyTelegram();
+      try { firebaseApi.notifyTelegram?.(); } catch {}
       notify(`Rental started for ${rental.customerName}`);
       setContractRental(rental);
     } catch {}
@@ -205,7 +206,7 @@ export default function App() {
       if (car) await persist("cars", car.id, { ...car, status: "available" });
       setRentals((prev) => prev.map((r) => r.id === id ? updatedRental : r));
       setCars((prev) => prev.map((c) => c.id === rental.carId ? { ...c, status: "available" } : c));
-      notifyTelegram();
+      try { firebaseApi.notifyTelegram?.(); } catch {}
       notify("Car marked as returned.");
     } catch {}
   }
@@ -344,9 +345,7 @@ function CountdownBar({ rental }) {
   const elapsedPct = Math.max(0, Math.min(100, ((now - start) / totalMs) * 100));
   const { d, h, m, s } = splitDuration(remainingMs);
 
-  const label = overdue
-    ? `${d > 0 ? `${d}d ` : ""}${pad2(h)}:${pad2(m)}:${pad2(s)} overdue`
-    : `${d > 0 ? `${d}d ` : ""}${pad2(h)}:${pad2(m)}:${pad2(s)} left`;
+  const two = { minimumIntegerDigits: 2 };
   const notified = overdue ? rental.notifiedOverdue : rental.notifiedSoon;
 
   return (
@@ -365,7 +364,10 @@ function CountdownBar({ rental }) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.25 }}
       >
-        {notified ? "🔔 " : ""}{label}
+        {notified ? "🔔 " : ""}
+        {d > 0 && <NumberFlow value={d} suffix="d " />}
+        <NumberFlow value={h} format={two} />:<NumberFlow value={m} format={two} />:<NumberFlow value={s} format={two} />
+        {overdue ? " overdue" : " left"}
       </motion.span>
     </div>
   );
@@ -446,7 +448,7 @@ function Fleet({ cars, rentals, onAdd, onDelete }) {
               <div className="car-top"><div><b>{c.name}</b><small>{c.model}</small></div><span className={`status ${c.status}`} /></div>
               <div className="car-meta">{c.plate || "No plate"} {c.color ? `· ${c.color}` : ""}</div>
               <div className="price">{money(c.pricePerDay)}<small>/day</small></div>
-              {active && <div className="rented-note">With {active.customerName} · {daysLeft(active)}d left</div>}
+              {active && <div className="rented-note">With {active.customerName} · <NumberFlow value={daysLeft(active)} suffix="d left" /></div>}
               <motion.button className="ghost" onClick={() => onDelete(c.id)} whileTap={{ scale: 0.95 }}>Remove</motion.button>
             </motion.article>;
           })}
@@ -498,17 +500,7 @@ function Rentals({ cars, rentals, onAdd, onReturn, onContract }) {
         <Field label="Rental days" type="number" value={form.days} onChange={(v) => setForm({ ...form, days: v })} />
         <motion.div className="total" layout variants={fieldVariants} transition={{ duration: 0.3, ease: "easeOut" }}>
           <span>Total price</span>
-          <AnimatePresence mode="popLayout" initial={false}>
-            <motion.strong
-              key={total}
-              initial={{ y: -14, opacity: 0, scale: 0.92 }}
-              animate={{ y: 0, opacity: 1, scale: 1 }}
-              exit={{ y: 14, opacity: 0, scale: 0.92 }}
-              transition={{ duration: 0.28, ease: "easeOut" }}
-            >
-              {money(total)}
-            </motion.strong>
-          </AnimatePresence>
+          <strong className="price-flow"><NumberFlow value={total} suffix=" MAD" format={{ maximumFractionDigits: 2 }} transformTiming={{ duration: 600, easing: "ease-out" }} /></strong>
         </motion.div>
         <motion.button className="primary" variants={fieldVariants} whileTap={{ scale: 0.97 }} disabled={!available.length}>{available.length ? "Start rental" : "No cars available"}</motion.button>
       </motion.form>
@@ -679,7 +671,7 @@ function RentalCalendar({ cars, rentals, onContract }) {
     <section className="panel">
       <div className="panel-head"><h2>Month rentals</h2><span>{monthRentals.length}</span></div>
       {monthRentals.length === 0 ? <Empty text="No rentals in this month." /> : <motion.div className="calendar-rental-list" variants={formStagger} initial="hidden" animate="show">
-        {[...monthRentals].sort((a, b) => new Date(a.startDate) - new Date(b.startDate)).map((r) => {
+        {[...monthRentals].sort((a, b) => new Date(b.startDate) - new Date(a.startDate)).map((r) => {
           const car = cars.find((c) => c.id === r.carId);
           return <motion.div className="calendar-rental-row" key={r.id} variants={fieldVariants}>
             <div className={`calendar-status ${r.returned ? 'returned' : 'active'}`} />
@@ -873,15 +865,7 @@ function QuickRentalModal({ customer, cars, onAdd, onClose }) {
         <Field label="Rental days" type="number" value={days} onChange={setDays} />
         <motion.div className="total" layout variants={fieldVariants} transition={{ duration: 0.3, ease: "easeOut" }}>
           <span>Total price</span>
-          <AnimatePresence mode="popLayout" initial={false}>
-            <motion.strong
-              key={total}
-              initial={{ y: -14, opacity: 0, scale: 0.92 }}
-              animate={{ y: 0, opacity: 1, scale: 1 }}
-              exit={{ y: 14, opacity: 0, scale: 0.92 }}
-              transition={{ duration: 0.28, ease: "easeOut" }}
-            >{money(total)}</motion.strong>
-          </AnimatePresence>
+          <strong className="price-flow"><NumberFlow value={total} suffix=" MAD" format={{ maximumFractionDigits: 2 }} transformTiming={{ duration: 600, easing: "ease-out" }} /></strong>
         </motion.div>
         <motion.button type="submit" className="primary" disabled={!car || submitting} whileTap={{ scale: 0.97 }} variants={fieldVariants}>
           {submitting ? "Starting…" : "Start rental"}

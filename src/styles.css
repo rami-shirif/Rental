@@ -1552,3 +1552,10 @@ select {
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 }
+/* NumberFlow (animated digits) */
+.countdown-timer number-flow-react,
+.rented-note number-flow-react {
+  font-variant-numeric: tabular-nums;
+}
+
+.price-flow { font-variant-numeric: tabular-nums; }
