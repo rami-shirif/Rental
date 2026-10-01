@@ -38,3 +38,13 @@ export async function writeItem(path, id, value) {
 export async function deleteItem(path, id) {
   await remove(ref(db, `${path}/${id}`));
 }
+
+// Real-time Telegram alert: pings the Apps Script Web App right after a
+// rental is created/returned. Paste your Web App URL (ends with /exec) below.
+const TELEGRAM_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbxb-PdvY1ROoXk5maEL7sXk2aUkG9AtFqNcSpvmUWJVa_x0vykrdX4kW2kfSG7U_aFD/exec";
+
+export function notifyTelegram() {
+  if (!TELEGRAM_WEBAPP_URL || TELEGRAM_WEBAPP_URL.startsWith("PASTE_")) return;
+  // Fire-and-forget: never block or break the app if this fails.
+  fetch(`${TELEGRAM_WEBAPP_URL}?ping=${Date.now()}`, { mode: "no-cors" }).catch(() => {});
+}

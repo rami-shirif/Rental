@@ -28,7 +28,28 @@ const SOON_WINDOW_MS = 3 * HOUR_MS; // "before 3 hours"
 // Optional: set an APP_URL script property (e.g. your hosted app link) to
 // have it included at the bottom of new-rental / returned messages.
 
+/** Web App endpoint: the app calls this right after a rental is created/returned. */
+function doGet() {
+  runLocked();
+  return ContentService.createTextOutput("ok");
+}
+
+/** Time trigger entry point (every 5 min). Lock prevents duplicate messages. */
 function checkRentals() {
+  runLocked();
+}
+
+function runLocked() {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(25000)) return;
+  try {
+    doCheckRentals();
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function doCheckRentals() {
   const props = PropertiesService.getScriptProperties();
   const botToken = props.getProperty("TELEGRAM_BOT_TOKEN");
   const chatId = props.getProperty("TELEGRAM_CHAT_ID");

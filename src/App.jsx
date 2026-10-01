@@ -4,6 +4,7 @@ import {
   connectFirebase,
   readCollection,
   writeItem,
+  notifyTelegram,
   deleteItem,
 } from "./firebase";
 import "./styles.css";
@@ -188,6 +189,7 @@ export default function App() {
       ]);
       setRentals((prev) => [...prev, rental]);
       setCars((prev) => prev.map((c) => c.id === car.id ? { ...c, status: "rented" } : c));
+      notifyTelegram();
       notify(`Rental started for ${rental.customerName}`);
       setContractRental(rental);
     } catch {}
@@ -203,6 +205,7 @@ export default function App() {
       if (car) await persist("cars", car.id, { ...car, status: "available" });
       setRentals((prev) => prev.map((r) => r.id === id ? updatedRental : r));
       setCars((prev) => prev.map((c) => c.id === rental.carId ? { ...c, status: "available" } : c));
+      notifyTelegram();
       notify("Car marked as returned.");
     } catch {}
   }
