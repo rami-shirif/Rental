@@ -3,6 +3,7 @@
     "rules": "database.rules.json"
   },
   "hosting": {
+    "site": "omarcars",
     "public": "dist",
     "ignore": [
       "firebase.json",
