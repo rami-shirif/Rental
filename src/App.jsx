@@ -223,12 +223,12 @@ export default function App() {
     };
   }, [cars, rentals]);
 
-  if (loading) return <div className="loading">OMAR RENT</div>;
+  if (loading) return <div className="loading">OMAR-LZ RENT</div>;
 
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <div className="brand"><span className="brand-mark">◍</span> Rental Cars Manager</div>
+        <div className="brand">OMAR-LZ CARS</div>
         <nav>
           {[
             ["dashboard", "Overview"], ["cars", "Cars"], ["rentals", "Rentals"], ["calendar", "Calendar"], ["customers", "Customers"], ["availability", "Availability"]
@@ -251,7 +251,7 @@ export default function App() {
             </motion.button>
           ))}
         </nav>
-        <div className="cloud-status"><span className="online-dot" /> Firebase connected</div>
+        <div className="cloud-status"><span className="online-dot" />Created by OMAR-LZ</div>
       </aside>
 
       <main className="main">
@@ -362,7 +362,7 @@ function CountdownBar({ rental }) {
         key={overdue ? "over" : "left"}
         initial={{ opacity: 0, y: -4 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.25 }}
+        transition={{ duration: 0.25, damping: 3000  }}
       >
         {notified ? "🔔 " : ""}
         {d > 0 && <NumberFlow value={d} suffix="d " />}
@@ -997,7 +997,7 @@ function ContractModal({ rental, car, onClose }) {
       </div>
       <div className="contract" id="print-contract">
         <header className="contract-header">
-          <div><div className="contract-logo">RENTAL CARS</div><small>Vehicle Rental Agreement</small></div>
+          <div><div className="contract-logo">OMAR-LZ</div><small>Vehicle Rental Agreement</small></div>
           <div className="contract-number">Contract #{rental.id.slice(-8).toUpperCase()}</div>
         </header>
         <div className="contract-title"><h1>CAR RENTAL CONTRACT</h1><p>Agreement date: {dateText(rental.startDate)}</p></div>
@@ -1034,7 +1034,7 @@ function ContractModal({ rental, car, onClose }) {
           <div><span>Customer signature</span><div /></div>
           <div><span>Agency representative</span><div /></div>
         </div>
-        <footer>Generated from Rental Cars Manager · {dateTimeText(new Date())}</footer>
+        <footer>Generated from OMAR-LZ · {dateTimeText(new Date())}</footer>
       </div>
     </motion.div>
   </motion.div>;
