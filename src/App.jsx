@@ -496,8 +496,8 @@ function Rentals({ cars, rentals, onAdd, onReturn, onContract }) {
         </motion.div>
         <Field label="Customer name" value={form.customerName} onChange={(v) => setForm({ ...form, customerName: v })} placeholder="Full name" />
         <Field label="CIN / ID" value={form.cin} onChange={(v) => setForm({ ...form, cin: v })} placeholder="ID number" />
-        <Field label="Phone" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} placeholder="+212 ..." />
-        <Field label="Rental days" type="number" value={form.days} onChange={(v) => setForm({ ...form, days: v })} />
+        <Field label="Phone" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} type="tel" placeholder="+212 ..." />
+        <Field label="Rental days" type="tel" value={form.days} onChange={(v) => setForm({ ...form, days: v })} />
         <motion.div className="total" layout variants={fieldVariants} transition={{ duration: 0.3, ease: "easeOut" }}>
           <span>Total price</span>
           <strong className="price-flow"><NumberFlow value={total} suffix=" MAD" format={{ maximumFractionDigits: 2 }} transformTiming={{ duration: 600, easing: "ease-out" }} /></strong>

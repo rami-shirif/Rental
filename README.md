@@ -150,3 +150,35 @@ The print stylesheet hides the dashboard and prints only the contract.
 - Contract numbering and agency information settings
 - Login roles (owner, manager, employee)
 - Firestore/Realtime Database audit log
+
+
+## Automatic Firebase Hosting Deployment
+
+This project is configured so every push to the `main` branch automatically builds
+the Vite/React application and deploys it to Firebase Hosting.
+
+### GitHub secret required
+
+In GitHub:
+
+`Repository → Settings → Secrets and variables → Actions → New repository secret`
+
+Create:
+
+- Name: `FIREBASE_SERVICE_ACCOUNT`
+- Value: the complete JSON service-account key for Firebase project `rental-cars-manager`
+
+After that:
+
+```bash
+git add .
+git commit -m "Configure automatic Firebase deployment"
+git push origin main
+```
+
+Every future push to `main` will automatically deploy the latest version.
+
+### Important
+
+The Vite `base` is `/` for Firebase Hosting. Do not use `/Rental/`, which was
+needed for the previous GitHub Pages deployment.
